@@ -59,6 +59,8 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
   );
   const [newDateValue, setNewDateValue] = useState("");
   const [newTimeValue, setNewTimeValue] = useState("19:00");
+  const [newHost, setNewHost] = useState("");
+  const [newRallyName, setNewRallyName] = useState("");
   const [showForm, setShowForm] = useState(false);
 
   function selectName(name: string) {
@@ -73,11 +75,15 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
       id: Date.now(),
       proposedBy: myName,
       dateText: displayText,
+      host: newHost.trim() || undefined,
+      rallyName: newRallyName.trim() || undefined,
       responses: { [myName]: "yes" },
     };
     setProposals((prev) => [proposal, ...prev]);
     setNewDateValue("");
     setNewTimeValue("19:00");
+    setNewHost("");
+    setNewRallyName("");
     setShowForm(false);
   }
 
@@ -179,10 +185,35 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm text-zinc-400 mb-2">
+                  Kelle juures mängime? <span className="text-zinc-600">(vabatahtlik)</span>
+                </label>
+                <input
+                  className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border border-zinc-700 focus:outline-none focus:border-yellow-400"
+                  placeholder="nt Risto juures"
+                  value={newHost}
+                  onChange={(e) => setNewHost(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-zinc-400 mb-2">
+                  Mis ralli? <span className="text-zinc-600">(vabatahtlik)</span>
+                </label>
+                <input
+                  className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border border-zinc-700 focus:outline-none focus:border-yellow-400"
+                  placeholder="nt Monte Carlo, Safari Rally..."
+                  value={newRallyName}
+                  onChange={(e) => setNewRallyName(e.target.value)}
+                />
+              </div>
+
               {newDateValue && (
                 <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300">
                   <span className="text-zinc-500">Eelvaade: </span>
                   {formatDateDisplay(newDateValue, newTimeValue)}
+                  {newHost && <span className="text-zinc-400"> · {newHost}</span>}
+                  {newRallyName && <span className="text-zinc-400"> · {newRallyName}</span>}
                 </div>
               )}
 
@@ -235,9 +266,21 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
             return (
               <div key={proposal.id} className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6">
                 <div className="flex justify-between items-start gap-4 mb-4">
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <p className="text-xl font-bold">{proposal.dateText}</p>
-                    <p className="text-zinc-400 text-sm mt-1">
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+                      {proposal.rallyName && (
+                        <span className="text-sm bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 px-2.5 py-0.5 rounded-lg font-medium">
+                          🏁 {proposal.rallyName}
+                        </span>
+                      )}
+                      {proposal.host && (
+                        <span className="text-sm bg-zinc-800 text-zinc-300 border border-zinc-700 px-2.5 py-0.5 rounded-lg">
+                          🏠 {proposal.host}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-zinc-500 text-sm mt-1.5">
                       <span className="text-zinc-500">Pakkuja: </span>
                       <span className="text-yellow-400">{proposal.proposedBy}</span>
                       {" · "}{respondedCount}/{totalDrivers} vastanud

@@ -17,6 +17,8 @@ export type Proposal = {
   id: number;
   proposedBy: string;
   dateText: string;
+  host?: string;
+  rallyName?: string;
   responses: Record<string, "yes" | "no" | "maybe">;
 };
 
