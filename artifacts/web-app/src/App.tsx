@@ -11,6 +11,7 @@ export type Rally = {
   stages: number;
   results: Record<string, string[]>;
   season?: number;
+  quickRace?: boolean;
 };
 
 export type Proposal = {
