@@ -25,11 +25,40 @@ const RESPONSE_ACTIVE: Record<string, string> = {
   no: "ring-2 ring-red-400",
 };
 
+const DAYS_ET = ["Pühapäev", "Esmaspäev", "Teisipäev", "Kolmapäev", "Neljapäev", "Reede", "Laupäev"];
+const MONTHS_ET = [
+  "jaanuaril", "veebruaril", "märtsil", "aprillil", "mail", "juunil",
+  "juulil", "augustil", "septembril", "oktoobril", "novembril", "detsembril",
+];
+
+function formatDateDisplay(dateStr: string, timeStr: string): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr + "T12:00:00");
+  const day = DAYS_ET[d.getDay()];
+  const month = MONTHS_ET[d.getMonth()];
+  const date = d.getDate();
+  const year = d.getFullYear();
+  const time = timeStr ? ` kell ${timeStr}` : "";
+  return `${day}, ${date}. ${month} ${year}${time}`;
+}
+
+function generateTimes(): string[] {
+  const times: string[] = [];
+  for (let h = 10; h <= 23; h++) {
+    times.push(`${String(h).padStart(2, "0")}:00`);
+    if (h < 23) times.push(`${String(h).padStart(2, "0")}:30`);
+  }
+  return times;
+}
+
+const TIME_OPTIONS = generateTimes();
+
 export default function CalendarTab({ proposals, setProposals, drivers }: Props) {
   const [myName, setMyName] = useState<string>(() =>
     localStorage.getItem("wrcCurrentUser") || ""
   );
-  const [newDate, setNewDate] = useState("");
+  const [newDateValue, setNewDateValue] = useState("");
+  const [newTimeValue, setNewTimeValue] = useState("19:00");
   const [showForm, setShowForm] = useState(false);
 
   function selectName(name: string) {
@@ -38,15 +67,17 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
   }
 
   function addProposal() {
-    if (!newDate.trim() || !myName) return;
+    if (!newDateValue || !myName) return;
+    const displayText = formatDateDisplay(newDateValue, newTimeValue);
     const proposal: Proposal = {
       id: Date.now(),
       proposedBy: myName,
-      dateText: newDate.trim(),
+      dateText: displayText,
       responses: { [myName]: "yes" },
     };
     setProposals((prev) => [proposal, ...prev]);
-    setNewDate("");
+    setNewDateValue("");
+    setNewTimeValue("19:00");
     setShowForm(false);
   }
 
@@ -70,15 +101,13 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
     setProposals((prev) => prev.filter((p) => p.id !== id));
   }
 
-  function countResponse(proposal: Proposal, type: "yes" | "no" | "maybe") {
-    return Object.values(proposal.responses).filter((r) => r === type).length;
-  }
-
   function getRespondedNames(proposal: Proposal, type: "yes" | "no" | "maybe") {
     return Object.entries(proposal.responses)
       .filter(([, r]) => r === type)
       .map(([name]) => name);
   }
+
+  const todayStr = new Date().toISOString().split("T")[0];
 
   return (
     <div>
@@ -113,38 +142,60 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
           ))}
         </div>
         {!myName && (
-          <p className="text-zinc-500 text-sm mt-3">Vali oma nimi, et saaksid aegadele vastata ja uusi pakkuda.</p>
+          <p className="text-zinc-500 text-sm mt-3">
+            Vali oma nimi, et saaksid aegadele vastata ja uusi pakkuda.
+          </p>
         )}
       </div>
 
-      {/* New proposal form */}
+      {/* New proposal modal */}
       {showForm && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <div className="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 w-full max-w-md">
             <h3 className="text-2xl font-bold mb-6">Paku mänguaega</h3>
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-5">
               <div>
-                <label className="block text-sm text-zinc-400 mb-1">Kuupäev ja kellaaeg</label>
+                <label className="block text-sm text-zinc-400 mb-2">Kuupäev</label>
                 <input
-                  className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border border-zinc-700 focus:outline-none focus:border-yellow-400"
-                  placeholder="nt Laupäev 19. aprill kell 19:00"
-                  value={newDate}
-                  onChange={(e) => setNewDate(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && addProposal()}
-                  autoFocus
+                  type="date"
+                  min={todayStr}
+                  className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border border-zinc-700 focus:outline-none focus:border-yellow-400 [color-scheme:dark]"
+                  value={newDateValue}
+                  onChange={(e) => setNewDateValue(e.target.value)}
                 />
               </div>
-              <p className="text-zinc-500 text-sm">Kirjuta vabas vormis — kuupäev, kellaaeg, märkused.</p>
-              <div className="flex gap-3 mt-2">
+              <div>
+                <label className="block text-sm text-zinc-400 mb-2">Kellaaeg</label>
+                <select
+                  className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border border-zinc-700 focus:outline-none focus:border-yellow-400 appearance-none"
+                  value={newTimeValue}
+                  onChange={(e) => setNewTimeValue(e.target.value)}
+                >
+                  {TIME_OPTIONS.map((t) => (
+                    <option key={t} value={t}>
+                      {t}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {newDateValue && (
+                <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300">
+                  <span className="text-zinc-500">Eelvaade: </span>
+                  {formatDateDisplay(newDateValue, newTimeValue)}
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-1">
                 <button
                   onClick={addProposal}
-                  disabled={!newDate.trim()}
+                  disabled={!newDateValue}
                   className="flex-1 bg-yellow-400 text-black font-bold py-3 rounded-xl hover:bg-yellow-300 transition-colors disabled:opacity-40"
                 >
                   Paku
                 </button>
                 <button
-                  onClick={() => { setShowForm(false); setNewDate(""); }}
+                  onClick={() => { setShowForm(false); setNewDateValue(""); }}
                   className="flex-1 bg-zinc-700 font-bold py-3 rounded-xl hover:bg-zinc-600 transition-colors"
                 >
                   Tühista
@@ -155,7 +206,7 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
         </div>
       )}
 
-      {/* Proposals list */}
+      {/* Proposals */}
       {proposals.length === 0 ? (
         <div className="text-center py-16 text-zinc-500">
           <p className="text-5xl mb-4">📅</p>
@@ -182,19 +233,17 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
             const respondedCount = Object.keys(proposal.responses).length;
 
             return (
-              <div
-                key={proposal.id}
-                className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6"
-              >
+              <div key={proposal.id} className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6">
                 <div className="flex justify-between items-start gap-4 mb-4">
                   <div>
                     <p className="text-xl font-bold">{proposal.dateText}</p>
                     <p className="text-zinc-400 text-sm mt-1">
-                      Pakutas: <span className="text-yellow-400">{proposal.proposedBy}</span>
+                      <span className="text-zinc-500">Pakkuja: </span>
+                      <span className="text-yellow-400">{proposal.proposedBy}</span>
                       {" · "}{respondedCount}/{totalDrivers} vastanud
                     </p>
                   </div>
-                  {(myName === proposal.proposedBy || !myName) && (
+                  {myName === proposal.proposedBy && (
                     <button
                       onClick={() => deleteProposal(proposal.id)}
                       className="text-zinc-600 hover:text-red-500 transition-colors text-lg shrink-0"
@@ -205,7 +254,7 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                 </div>
 
                 {/* Response summary */}
-                <div className="flex flex-wrap gap-4 mb-4 text-sm">
+                <div className="flex flex-col gap-1 mb-4 text-sm">
                   {yesNames.length > 0 && (
                     <div>
                       <span className="text-green-400 font-bold">✅ Sobib ({yesNames.length}):</span>{" "}
@@ -241,7 +290,7 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                         }`}
                       >
                         {RESPONSE_LABELS[r]}
-                        {myResponse === r && " (minu valik)"}
+                        {myResponse === r && " ✓"}
                       </button>
                     ))}
                   </div>
@@ -249,25 +298,19 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
 
                 {/* Progress bar */}
                 {totalDrivers > 0 && (
-                  <div className="mt-4 flex h-2 rounded-full overflow-hidden bg-zinc-800 gap-0.5">
-                    {yesNames.length > 0 && (
-                      <div
-                        className="bg-green-500 transition-all"
-                        style={{ width: `${(yesNames.length / totalDrivers) * 100}%` }}
-                      />
-                    )}
-                    {maybeNames.length > 0 && (
-                      <div
-                        className="bg-yellow-500 transition-all"
-                        style={{ width: `${(maybeNames.length / totalDrivers) * 100}%` }}
-                      />
-                    )}
-                    {noNames.length > 0 && (
-                      <div
-                        className="bg-red-600 transition-all"
-                        style={{ width: `${(noNames.length / totalDrivers) * 100}%` }}
-                      />
-                    )}
+                  <div className="mt-4 flex h-2 rounded-full overflow-hidden bg-zinc-800">
+                    <div
+                      className="bg-green-500 transition-all"
+                      style={{ width: `${(yesNames.length / totalDrivers) * 100}%` }}
+                    />
+                    <div
+                      className="bg-yellow-500 transition-all"
+                      style={{ width: `${(maybeNames.length / totalDrivers) * 100}%` }}
+                    />
+                    <div
+                      className="bg-red-600 transition-all"
+                      style={{ width: `${(noNames.length / totalDrivers) * 100}%` }}
+                    />
                   </div>
                 )}
               </div>

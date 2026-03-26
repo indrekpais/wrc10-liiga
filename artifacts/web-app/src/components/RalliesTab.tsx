@@ -16,6 +16,18 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
   const [newDate, setNewDate] = useState("");
   const [newStages, setNewStages] = useState("15");
 
+  const todayStr = new Date().toISOString().split("T")[0];
+
+  function formatRallyDate(dateStr: string): string {
+    if (!dateStr) return "";
+    if (!dateStr.includes("-")) return dateStr;
+    const d = new Date(dateStr + "T12:00:00");
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = d.getFullYear();
+    return `${day}.${month}.${year}`;
+  }
+
   const activeRally = rallies.find((r) => r.id === currentRallyId) ?? null;
 
   function createRally() {
@@ -24,7 +36,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
     const rally: Rally = {
       id: Date.now(),
       name: newName.trim(),
-      date: newDate.trim(),
+      date: newDate ? formatRallyDate(newDate) : "",
       stages,
       results: {},
     };
@@ -88,8 +100,8 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
               <div>
                 <label className="block text-sm text-zinc-400 mb-1">Kuupäev</label>
                 <input
-                  className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border border-zinc-700 focus:outline-none focus:border-yellow-400"
-                  placeholder="nt 10/11.04"
+                  type="date"
+                  className="w-full bg-zinc-800 text-white px-4 py-3 rounded-xl border border-zinc-700 focus:outline-none focus:border-yellow-400 [color-scheme:dark]"
                   value={newDate}
                   onChange={(e) => setNewDate(e.target.value)}
                 />
