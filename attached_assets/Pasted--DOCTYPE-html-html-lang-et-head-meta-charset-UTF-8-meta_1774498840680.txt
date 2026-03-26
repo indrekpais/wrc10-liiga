@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WRC 10 Privaatne Liiga</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui; }
+    input { @apply border border-gray-300 rounded px-2 py-1 text-center w-full focus:outline-none focus:border-blue-500; }
+    th { @apply bg-yellow-400 text-black font-bold p-2; }
+  </style>
+</head>
+<body class="bg-zinc-950 text-white">
+  <div class="max-w-7xl mx-auto p-6">
+    <header class="flex justify-between items-center mb-8">
+      <h1 class="text-5xl font-bold text-yellow-400">WRC 10 • Meie Liiga</h1>
+      <div class="flex gap-4">
+        <button onclick="switchTab(0)" class="tab-btn active px-6 py-3 rounded-xl bg-yellow-400 text-black font-bold">RALLID</button>
+        <button onclick="switchTab(1)" class="tab-btn px-6 py-3 rounded-xl hover:bg-zinc-800">JUHTID</button>
+        <button onclick="switchTab(2)" class="tab-btn px-6 py-3 rounded-xl hover:bg-zinc-800">ÜLDARVESTUS</button>
+      </div>
+    </header>
+
+    <!-- TAB 0: RALLID -->
+    <div id="tab-0" class="tab-content">
+      <div class="flex justify-between mb-6">
+        <h2 class="text-3xl font-bold">Rallid</h2>
+        <button onclick="createNewRally()" class="bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-bold">+ Uus ralli</button>
+      </div>
+      <div id="rally-list" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+
+      <!-- Aktiivne ralli -->
+      <div id="active-rally" class="hidden mt-10 border border-yellow-400 rounded-3xl p-8 bg-zinc-900">
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h3 id="rally-name" class="text-3xl font-bold"></h3>
+            <p id="rally-date" class="text-yellow-400"></p>
+          </div>
+          <button onclick="saveCurrentRally()" class="bg-yellow-400 text-black px-8 py-3 rounded-2xl font-bold">Salvesta & Arvuta</button>
+        </div>
+        <table class="w-full border-collapse" id="stage-table">
+          <thead><tr id="stage-header"></tr></thead>
+          <tbody id="stage-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB 1: JUHTID -->
+    <div id="tab-1" class="tab-content hidden">
+      <h2 class="text-3xl font-bold mb-6">Juhtide haldus</h2>
+      <div class="flex gap-3 mb-6">
+        <input id="new-driver" placeholder="Uue juhi nimi" class="bg-zinc-800 text-white px-4 py-3 rounded-2xl flex-1">
+        <button onclick="addDriver()" class="bg-white text-black px-8 rounded-2xl font-bold">Lisa</button>
+      </div>
+      <div id="driver-list" class="grid grid-cols-2 md:grid-cols-4 gap-4"></div>
+    </div>
+
+    <!-- TAB 2: ÜLDARVESTUS -->
+    <div id="tab-2" class="tab-content hidden">
+      <h2 class="text-3xl font-bold mb-6">Üldarvestus (Championship)</h2>
+      <table class="w-full" id="championship-table">
+        <thead><tr><th class="text-left">Koht</th><th class="text-left">Juht</th><th class="text-center">Punktid</th></tr></thead>
+        <tbody id="championship-body" class="text-lg"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let drivers = ["Risto", "Alar", "Kaupo", "Indrek", "Tanel"];
+    let rallies = [];
+    let currentRallyId = null;
+
+    const pointsTable = [0, 25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
+    const psPointsTable = [5, 4, 3, 2, 1];
+
+    function parseTime(str) {
+      if (!str) return Infinity;
+      str = str.replace(',', '.');
+      const parts = str.split(':');
+      if (parts.length === 1) return parseFloat(parts[0]) || Infinity;
+      if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]) || Infinity;
+      return Infinity;
+    }
+
+    function formatTime(seconds) {
+      if (seconds === Infinity || isNaN(seconds)) return '–';
+      const min = Math.floor(seconds / 60);
+      const sec = (seconds % 60).toFixed(3).replace('.', ',');
+      return `${min}:${sec.padStart(6, '0')}`;
+    }
+
+    function loadData() {
+      const savedDrivers = localStorage.getItem('wrcDrivers');
+      const savedRallies = localStorage.getItem('wrcRallies');
+      if (savedDrivers) drivers = JSON.parse(savedDrivers);
+      if (savedRallies) rallies = JSON.parse(savedRallies);
+    }
+
+    function saveData() {
+      localStorage.setItem('wrcDrivers', JSON.stringify(drivers));
+      localStorage.setItem('wrcRallies', JSON.stringify(rallies));
+    }
+
+    function renderRallyList() {
+      const container = document.getElementById('rally-list');
+      container.innerHTML = '';
+      rallies.forEach(r => {
+        const div = document.createElement('div');
+        div.className = `p-6 rounded-3xl border ${r.id === currentRallyId ? 'border-yellow-400 bg-zinc-800' : 'border-zinc-700 hover:border-zinc-500'} cursor-pointer`;
+        div.innerHTML = `
+          <h4 class="font-bold text-xl">${r.name}</h4>
+          <p class="text-yellow-400">${r.date}</p>
+          <p class="text-sm text-zinc-400 mt-2">${r.stages} etappi • ${Object.keys(r.results || {}).length}/${drivers.length} juhti</p>
+        `;
+        div.onclick = () => loadRally(r.id);
+        container.appendChild(div);
+      });
+    }
+
+    function createNewRally() {
+      const name = prompt("Ralli nimi (nt Monte Carlo)", "Monte Carlo");
+      if (!name) return;
+      const date = prompt("Kuupäev (nt 10/11.04)", "10/11.04");
+      const stages = parseInt(prompt("Etappide arv (soovitus 15)", "15")) || 15;
+
+      const newRally = {
+        id: Date.now(),
+        name: name,
+        date: date,
+        stages: stages,
+        results: {}
+      };
+      rallies.push(newRally);
+      saveData();
+      renderRallyList();
+      loadRally(newRally.id);
+    }
+
+    function loadRally(id) {
+      currentRallyId = id;
+      const rally = rallies.find(r => r.id === id);
+      if (!rally) return;
+
+      document.getElementById('active-rally').classList.remove('hidden');
+      document.getElementById('rally-name').textContent = rally.name;
+      document.getElementById('rally-date').textContent = rally.date;
+
+      // Header
+      const header = document.getElementById('stage-header');
+      header.innerHTML = '<th class="w-48 text-left">Juht</th>';
+      for (let i = 1; i <= rally.stages; i++) {
+        const th = document.createElement('th');
+        th.textContent = i === rally.stages ? `PS${i}` : `SS${i}`;
+        th.className = 'w-28';
+        header.appendChild(th);
+      }
+      header.innerHTML += `<th class="w-32">Koguaeg</th><th class="w-20">Koht</th><th class="w-20">Punktid</th><th class="w-20">PS</th><th class="w-20">Kokku</th>`;
+
+      // Body
+      const tbody = document.getElementById('stage-body');
+      tbody.innerHTML = '';
+      drivers.forEach(driver => {
+        const times = rally.results[driver] || new Array(rally.stages).fill('');
+        const row = document.createElement('tr');
+        row.className = 'border-b border-zinc-700';
+        let html = `<td class="font-bold p-3">${driver}</td>`;
+
+        for (let i = 0; i < rally.stages; i++) {
+          html += `<td><input type="text" value="${times[i]}" onchange="updateTime(${id}, '${driver}', ${i}, this.value)" class="text-center"></td>`;
+        }
+
+        // Arvuta hetkel
+        const totals = calculateRallyResults(rally);
+        const driverData = totals.find(d => d.driver === driver);
+        html += `
+          <td class="font-mono text-center">${driverData ? formatTime(driverData.total) : '–'}</td>
+          <td class="text-center font-bold">${driverData ? driverData.rank : '–'}</td>
+          <td class="text-center font-bold text-yellow-400">${driverData ? driverData.overallPts : '0'}</td>
+          <td class="text-center font-bold text-green-400">${driverData ? driverData.psPts : '0'}</td>
+          <td class="text-center font-bold text-xl">${driverData ? driverData.totalPts : '0'}</td>
+        `;
+        row.innerHTML = html;
+        tbody.appendChild(row);
+      });
+    }
+
+    function updateTime(rallyId, driver, stageIndex, value) {
+      const rally = rallies.find(r => r.id === rallyId);
+      if (!rally.results[driver]) rally.results[driver] = new Array(rally.stages).fill('');
+      rally.results[driver][stageIndex] = value;
+      saveData();
+      loadRally(rallyId); // refresh
+    }
+
+    function calculateRallyResults(rally) {
+      const results = [];
+      drivers.forEach(driver => {
+        const times = rally.results[driver] || [];
+        if (times.length < rally.stages || times.some(t => !t)) return; // ainult täielikud
+
+        let total = 0;
+        times.forEach(t => { total += parseTime(t); });
+
+        results.push({
+          driver: driver,
+          total: total,
+          psTime: parseTime(times[rally.stages - 1]),
+          times: times
+        });
+      });
+
+      // Üldkohad
+      results.sort((a, b) => a.total - b.total);
+      results.forEach((d, i) => {
+        const rank = i + 1;
+        d.rank = rank;
+        d.overallPts = rank < pointsTable.length ? pointsTable[rank] : 0;
+      });
+
+      // Power Stage
+      const psSorted = [...results].sort((a, b) => a.psTime - b.psTime);
+      psSorted.forEach((d, i) => {
+        if (i < 5) d.psPts = psPointsTable[i];
+        else d.psPts = 0;
+      });
+
+      results.forEach(d => {
+        d.totalPts = (d.overallPts || 0) + (d.psPts || 0);
+      });
+
+      return results;
+    }
+
+    function saveCurrentRally() {
+      const rally = rallies.find(r => r.id === currentRallyId);
+      if (rally) {
+        saveData();
+        alert('✅ Salvestatud! Punktid arvutatud.');
+        loadRally(currentRallyId);
+        renderChampionship();
+      }
+    }
+
+    function renderDriverList() {
+      const container = document.getElementById('driver-list');
+      container.innerHTML = drivers.map(d => `
+        <div class="bg-zinc-800 p-4 rounded-3xl flex justify-between items-center">
+          <span class="font-bold">${d}</span>
+          <button onclick="removeDriver('${d}')" class="text-red-500 text-xl">✕</button>
+        </div>
+      `).join('');
+    }
+
+    function addDriver() {
+      const input = document.getElementById('new-driver');
+      const name = input.value.trim();
+      if (name && !drivers.includes(name)) {
+        drivers.push(name);
+        saveData();
+        renderDriverList();
+        input.value = '';
+      }
+    }
+
+    function removeDriver(name) {
+      if (confirm(`Kustutada ${name}?`)) {
+        drivers = drivers.filter(d => d !== name);
+        saveData();
+        renderDriverList();
+      }
+    }
+
+    function renderChampionship() {
+      const tbody = document.getElementById('championship-body');
+      tbody.innerHTML = '';
+
+      const standings = {};
+      drivers.forEach(d => standings[d] = 0);
+
+      rallies.forEach(rally => {
+        const res = calculateRallyResults(rally);
+        res.forEach(d => {
+          if (standings[d.driver] !== undefined) standings[d.driver] += d.totalPts;
+        });
+      });
+
+      const sorted = Object.keys(standings)
+        .map(driver => ({ driver, points: standings[driver] }))
+        .sort((a, b) => b.points - a.points);
+
+      sorted.forEach((entry, i) => {
+        const row = document.createElement('tr');
+        row.className = 'border-b border-zinc-700';
+        row.innerHTML = `
+          <td class="p-4 font-bold">${i + 1}.</td>
+          <td class="p-4">${entry.driver}</td>
+          <td class="p-4 text-center text-2xl font-bold text-yellow-400">${entry.points}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    function switchTab(n) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`tab-${n}`).classList.remove('hidden');
+      document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        if (i === n) b.classList.add('active', 'bg-yellow-400', 'text-black');
+        else b.classList.remove('active', 'bg-yellow-400', 'text-black');
+      });
+
+      if (n === 2) renderChampionship();
+    }
+
+    // INIT
+    loadData();
+    renderRallyList();
+    renderDriverList();
+    // Näidisralli kui pole ühtegi
+    if (rallies.length === 0) {
+      rallies.push({
+        id: 1,
+        name: "Monte Carlo",
+        date: "10/11.04",
+        stages: 15,
+        results: {}
+      });
+      saveData();
+      renderRallyList();
+    }
+    switchTab(0);
+  </script>
+</body>
+</html>
