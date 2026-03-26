@@ -8,9 +8,10 @@ type Props = {
   drivers: string[];
   currentRallyId: number | null;
   setCurrentRallyId: React.Dispatch<React.SetStateAction<number | null>>;
+  activeSeason: number;
 };
 
-export default function RalliesTab({ rallies, setRallies, drivers, currentRallyId, setCurrentRallyId }: Props) {
+export default function RalliesTab({ rallies, setRallies, drivers, currentRallyId, setCurrentRallyId, activeSeason }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDate, setNewDate] = useState("");
@@ -39,6 +40,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
       date: newDate ? formatRallyDate(newDate) : "",
       stages,
       results: {},
+      season: activeSeason,
     };
     setRallies((prev) => [...prev, rally]);
     setCurrentRallyId(rally.id);

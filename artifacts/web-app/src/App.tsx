@@ -10,6 +10,7 @@ export type Rally = {
   date: string;
   stages: number;
   results: Record<string, string[]>;
+  season?: number;
 };
 
 export type Proposal = {
@@ -99,6 +100,8 @@ function loadFromStorage<T>(key: string, defaultVal: T): T {
   }
 }
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 export default function App() {
   const [activeTab, setActiveTab] = useState(0);
   const [drivers, setDrivers] = useState<string[]>(() =>
@@ -107,7 +110,7 @@ export default function App() {
   const [rallies, setRallies] = useState<Rally[]>(() => {
     const saved = loadFromStorage<Rally[]>("wrcRallies", []);
     if (saved.length === 0) {
-      return [{ id: 1, name: "Monte Carlo", date: "10/11.04", stages: 15, results: {} }];
+      return [{ id: 1, name: "Monte Carlo", date: "10/11.04", stages: 15, results: {}, season: CURRENT_YEAR }];
     }
     return saved;
   });
@@ -115,6 +118,19 @@ export default function App() {
     loadFromStorage("wrcProposals", [])
   );
   const [currentRallyId, setCurrentRallyId] = useState<number | null>(null);
+
+  // Seasons derived from existing rallies + current year
+  const availableSeasons: number[] = Array.from(
+    new Set([
+      CURRENT_YEAR,
+      ...rallies.map((r) => r.season ?? CURRENT_YEAR),
+    ])
+  ).sort((a, b) => a - b);
+
+  const [activeSeason, setActiveSeason] = useState<number>(() => {
+    const saved = localStorage.getItem("wrcActiveSeason");
+    return saved ? parseInt(saved) : CURRENT_YEAR;
+  });
 
   useEffect(() => {
     localStorage.setItem("wrcDrivers", JSON.stringify(drivers));
@@ -128,12 +144,32 @@ export default function App() {
     localStorage.setItem("wrcProposals", JSON.stringify(proposals));
   }, [proposals]);
 
+  useEffect(() => {
+    localStorage.setItem("wrcActiveSeason", String(activeSeason));
+  }, [activeSeason]);
+
+  function addSeason() {
+    const year = prompt("Uue hooaja aasta:", String(CURRENT_YEAR + 1));
+    if (!year) return;
+    const num = parseInt(year);
+    if (!isNaN(num) && num > 2000 && num < 2100) {
+      setActiveSeason(num);
+    }
+  }
+
+  function handleSeasonChange(season: number) {
+    setActiveSeason(season);
+    setCurrentRallyId(null);
+  }
+
+  const seasonRallies = rallies.filter((r) => (r.season ?? CURRENT_YEAR) === activeSeason);
+
   const tabs = ["RALLID", "JUHID", "ÜLDARVESTUS", "KALENDER"];
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <div className="max-w-7xl mx-auto p-6">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
+        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">WRC 10 • Meie Liiga</h1>
           <div className="flex gap-2 sm:gap-4 flex-wrap">
             {tabs.map((tab, i) => (
@@ -152,20 +188,45 @@ export default function App() {
           </div>
         </header>
 
+        {/* Season selector */}
+        <div className="flex items-center gap-2 mb-8 flex-wrap">
+          <span className="text-zinc-500 text-sm">Hooaeg:</span>
+          {availableSeasons.map((s) => (
+            <button
+              key={s}
+              onClick={() => handleSeasonChange(s)}
+              className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${
+                activeSeason === s
+                  ? "bg-yellow-400 text-black"
+                  : "bg-zinc-800 hover:bg-zinc-700 text-white"
+              }`}
+            >
+              {s}
+            </button>
+          ))}
+          <button
+            onClick={addSeason}
+            className="px-3 py-1.5 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+          >
+            + Lisa hooaeg
+          </button>
+        </div>
+
         {activeTab === 0 && (
           <RalliesTab
-            rallies={rallies}
+            rallies={seasonRallies}
             setRallies={setRallies}
             drivers={drivers}
             currentRallyId={currentRallyId}
             setCurrentRallyId={setCurrentRallyId}
+            activeSeason={activeSeason}
           />
         )}
         {activeTab === 1 && (
           <DriversTab drivers={drivers} setDrivers={setDrivers} />
         )}
         {activeTab === 2 && (
-          <ChampionshipTab rallies={rallies} drivers={drivers} />
+          <ChampionshipTab rallies={seasonRallies} drivers={drivers} activeSeason={activeSeason} />
         )}
         {activeTab === 3 && (
           <CalendarTab proposals={proposals} setProposals={setProposals} drivers={drivers} />
