@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import RalliesTab from "./components/RalliesTab";
 import DriversTab from "./components/DriversTab";
 import ChampionshipTab from "./components/ChampionshipTab";
+import CalendarTab from "./components/CalendarTab";
 
 export type Rally = {
   id: number;
@@ -11,15 +12,24 @@ export type Rally = {
   results: Record<string, string[]>;
 };
 
+export type Proposal = {
+  id: number;
+  proposedBy: string;
+  dateText: string;
+  responses: Record<string, "yes" | "no" | "maybe">;
+};
+
 const POINTS_TABLE = [0, 25, 18, 15, 12, 10, 8, 6, 4, 2, 1];
 const PS_POINTS_TABLE = [5, 4, 3, 2, 1];
 
 export function parseTime(str: string): number {
-  if (!str) return Infinity;
-  const s = str.replace(",", ".");
-  const parts = s.split(":");
-  if (parts.length === 1) return parseFloat(parts[0]) || Infinity;
-  if (parts.length === 2) return parseFloat(parts[0]) * 60 + parseFloat(parts[1]);
+  if (!str || !str.trim()) return Infinity;
+  const parts = str.trim().split(/[.,:]+/).filter((p) => p.length > 0);
+  const nums = parts.map((p) => parseFloat(p.replace(",", ".")));
+  if (nums.some(isNaN)) return Infinity;
+  if (nums.length === 1) return nums[0];
+  if (nums.length === 2) return nums[0] * 60 + nums[1];
+  if (nums.length >= 3) return nums[0] * 60 + nums[1] + nums[2] / 1000;
   return Infinity;
 }
 
@@ -101,6 +111,9 @@ export default function App() {
     }
     return saved;
   });
+  const [proposals, setProposals] = useState<Proposal[]>(() =>
+    loadFromStorage("wrcProposals", [])
+  );
   const [currentRallyId, setCurrentRallyId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -111,14 +124,18 @@ export default function App() {
     localStorage.setItem("wrcRallies", JSON.stringify(rallies));
   }, [rallies]);
 
-  const tabs = ["RALLID", "JUHTID", "ÜLDARVESTUS"];
+  useEffect(() => {
+    localStorage.setItem("wrcProposals", JSON.stringify(proposals));
+  }, [proposals]);
+
+  const tabs = ["RALLID", "JUHID", "ÜLDARVESTUS", "KALENDER"];
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <div className="max-w-7xl mx-auto p-6">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">WRC 10 • Meie Liiga</h1>
-          <div className="flex gap-2 sm:gap-4">
+          <div className="flex gap-2 sm:gap-4 flex-wrap">
             {tabs.map((tab, i) => (
               <button
                 key={i}
@@ -149,6 +166,9 @@ export default function App() {
         )}
         {activeTab === 2 && (
           <ChampionshipTab rallies={rallies} drivers={drivers} />
+        )}
+        {activeTab === 3 && (
+          <CalendarTab proposals={proposals} setProposals={setProposals} drivers={drivers} />
         )}
       </div>
     </div>
