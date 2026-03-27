@@ -437,7 +437,7 @@ export default function App() {
             setProposals={setProposals}
             myName={myName}
             setMyName={selectMyName}
-            onOpenCalendar={() => switchTab(3)}
+            onOpenCalendar={() => switchTab(2)}
             notifications={notifications}
             onDismissNotification={dismissNotification}
             onRegisterMyUpdate={registerMyUpdate}
