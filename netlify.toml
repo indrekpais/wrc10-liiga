@@ -1,0 +1,20 @@
+[build]
+  command = "pnpm install --frozen-lockfile && pnpm --filter @workspace/web-app run build"
+  publish = "artifacts/web-app/dist/public"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+  NODE_ENV = "production"
+  BASE_PATH = "/"
+  PORT = "3000"
+
+[[redirects]]
+  from = "/api/appdata"
+  to = "/.netlify/functions/appdata"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
