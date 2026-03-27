@@ -129,7 +129,7 @@ const DEFAULT_RALLIES: Rally[] = [
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
-const TAB_HASHES = ["rallid", "juhid", "uldarvestus", "kalender"];
+const TAB_HASHES = ["rallid", "uldarvestus", "kalender", "juhid"];
 
 function getInitialTab(): number {
   const hash = window.location.hash.replace("#", "").toLowerCase();
@@ -323,7 +323,7 @@ export default function App() {
   const seasonRallies = rallies.filter((r) => (r.season ?? CURRENT_YEAR) === activeSeason);
   const championshipRallies = seasonRallies.filter((r) => !r.quickRace);
 
-  const tabs = ["RALLID", "JUHID", "ÜLDARVESTUS", "KALENDER"];
+  const tabs = ["RALLID", "ÜLDARVESTUS", "KALENDER", "JUHID"];
 
   const saveIndicator = {
     saving: { text: "Salvestab...", color: "text-zinc-400" },
@@ -441,12 +441,9 @@ export default function App() {
           />
         )}
         {dataLoaded && activeTab === 1 && (
-          <DriversTab drivers={drivers} setDrivers={setDrivers} />
-        )}
-        {dataLoaded && activeTab === 2 && (
           <ChampionshipTab rallies={championshipRallies} drivers={drivers} activeSeason={activeSeason} />
         )}
-        {dataLoaded && activeTab === 3 && (
+        {dataLoaded && activeTab === 2 && (
           <CalendarTab
             proposals={proposals}
             setProposals={setProposals}
@@ -454,6 +451,9 @@ export default function App() {
             myName={myName}
             setMyName={selectMyName}
           />
+        )}
+        {dataLoaded && activeTab === 3 && (
+          <DriversTab drivers={drivers} setDrivers={setDrivers} />
         )}
       </div>
     </div>
