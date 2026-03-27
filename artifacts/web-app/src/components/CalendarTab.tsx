@@ -53,6 +53,120 @@ function generateTimes(): string[] {
 
 const TIME_OPTIONS = generateTimes();
 
+function getIcsUrl(): string {
+  return `${window.location.origin}/api/calendar`;
+}
+
+function addHoursToDateISO(dateISO: string, h: number, m: number, addHours: number): string {
+  const totalMinutes = h * 60 + m + addHours * 60;
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const remMinutes = totalMinutes % (24 * 60);
+  const newH = Math.floor(remMinutes / 60);
+  const newM = remMinutes % 60;
+
+  if (days === 0) {
+    return `${dateISO.replace(/-/g, "")}T${String(newH).padStart(2, "0")}${String(newM).padStart(2, "0")}00`;
+  }
+  const d = new Date(dateISO + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  const newDate = d.toISOString().slice(0, 10).replace(/-/g, "");
+  return `${newDate}T${String(newH).padStart(2, "0")}${String(newM).padStart(2, "0")}00`;
+}
+
+function buildGoogleCalendarUrl(proposal: Proposal): string {
+  if (!proposal.dateISO) return "";
+  const time = extractTimeFromText(proposal.dateText);
+  const [h, m] = time.split(":").map(Number);
+
+  const dateFlat = proposal.dateISO.replace(/-/g, "");
+  const hh = String(h).padStart(2, "0");
+  const mm = String(m).padStart(2, "0");
+  const dtstart = `${dateFlat}T${hh}${mm}00`;
+  const dtend = addHoursToDateISO(proposal.dateISO, h, m, 2);
+
+  const title = proposal.rallyName ? `WRC 10 · ${proposal.rallyName}` : "WRC 10 Mänguõhtu";
+  const details: string[] = [];
+  if (proposal.host) details.push(`Majavõõrustaja: ${proposal.host}`);
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: title,
+    dates: `${dtstart}/${dtend}`,
+    details: details.join("\n"),
+    ctz: "Europe/Tallinn",
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}
+
+function extractTimeFromText(dateText: string): string {
+  const match = dateText.match(/kell\s+(\d{1,2}:\d{2})/);
+  return match ? match[1] : "19:00";
+}
+
+function downloadIcs(proposal: Proposal): void {
+  if (!proposal.dateISO) return;
+  const time = extractTimeFromText(proposal.dateText);
+  const [h, m] = time.split(":").map(Number);
+
+  const dateFlat = proposal.dateISO.replace(/-/g, "");
+  const dtstart = `${dateFlat}T${String(h).padStart(2, "0")}${String(m).padStart(2, "0")}00`;
+  const dtend = addHoursToDateISO(proposal.dateISO, h, m, 2);
+
+  function escapeIcs(str: string): string {
+    return str.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+  }
+
+  const now = new Date();
+  const dtstamp = now.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "").slice(0, 15) + "Z";
+
+  const summary = proposal.rallyName ? `WRC 10 · ${escapeIcs(proposal.rallyName)}` : "WRC 10 Mänguõhtu";
+  const descParts: string[] = [];
+  if (proposal.host) descParts.push(`Majavõõrustaja: ${proposal.host}`);
+  const description = escapeIcs(descParts.join("\\n"));
+
+  const lines = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//WRC 10 Meie Liiga//ET",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VTIMEZONE",
+    "TZID:Europe/Tallinn",
+    "BEGIN:STANDARD",
+    "TZOFFSETFROM:+0300",
+    "TZOFFSETTO:+0200",
+    "TZNAME:EET",
+    "DTSTART:19701025T040000",
+    "RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU",
+    "END:STANDARD",
+    "BEGIN:DAYLIGHT",
+    "TZOFFSETFROM:+0200",
+    "TZOFFSETTO:+0300",
+    "TZNAME:EEST",
+    "DTSTART:19700329T030000",
+    "RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU",
+    "END:DAYLIGHT",
+    "END:VTIMEZONE",
+    "BEGIN:VEVENT",
+    `UID:wrc10-${proposal.id}@wrc10liiga`,
+    `DTSTAMP:${dtstamp}`,
+    `DTSTART;TZID=Europe/Tallinn:${dtstart}`,
+    `DTEND;TZID=Europe/Tallinn:${dtend}`,
+    `SUMMARY:${summary}`,
+    description ? `DESCRIPTION:${description}` : null,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].filter(Boolean).join("\r\n");
+
+  const blob = new Blob([lines], { type: "text/calendar;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `wrc10-${proposal.id}.ics`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function CalendarTab({ proposals, setProposals, drivers, myName, setMyName }: Props) {
   const [newDateValue, setNewDateValue] = useState("");
   const [newTimeValue, setNewTimeValue] = useState("19:00");
@@ -62,7 +176,6 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
   const [copied, setCopied] = useState(false);
   const [showIcsPanel, setShowIcsPanel] = useState(false);
   const [icsCopied, setIcsCopied] = useState(false);
-  const ICS_URL = `${window.location.origin}/api/calendar.ics`;
 
   function copyLink() {
     const url = `${window.location.origin}${window.location.pathname}#kalender`;
@@ -73,7 +186,7 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
   }
 
   function copyIcsUrl() {
-    navigator.clipboard.writeText(ICS_URL).then(() => {
+    navigator.clipboard.writeText(getIcsUrl()).then(() => {
       setIcsCopied(true);
       setTimeout(() => setIcsCopied(false), 2000);
     });
@@ -127,7 +240,6 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
       .map(([name]) => name);
   }
 
-  // Sort proposals: those with dateISO sorted ascending, rest at end
   const sortedProposals = [...proposals].sort((a, b) => {
     if (a.dateISO && b.dateISO) return a.dateISO.localeCompare(b.dateISO);
     if (a.dateISO) return -1;
@@ -168,7 +280,7 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
                 <div className="flex gap-2 mb-4">
                   <input
                     readOnly
-                    value={ICS_URL}
+                    value={getIcsUrl()}
                     className="flex-1 bg-zinc-800 border border-zinc-600 text-zinc-300 text-xs px-2 py-1.5 rounded-lg truncate focus:outline-none"
                   />
                   <button
@@ -411,6 +523,28 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
                         {RESPONSE_LABELS[r]}{myResponse === r && " ✓"}
                       </button>
                     ))}
+                  </div>
+                )}
+
+                {/* Calendar buttons */}
+                {proposal.dateISO && !isPast && (
+                  <div className="flex gap-2 flex-wrap mt-3 pt-3 border-t border-zinc-800">
+                    <a
+                      href={buildGoogleCalendarUrl(proposal)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                    >
+                      <span>📅</span>
+                      <span>Lisa Google Calendari</span>
+                    </a>
+                    <button
+                      onClick={() => downloadIcs(proposal)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
+                    >
+                      <span>🍎</span>
+                      <span>Lisa iPhone Calendrisse</span>
+                    </button>
                   </div>
                 )}
 

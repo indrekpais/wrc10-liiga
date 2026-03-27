@@ -28,6 +28,22 @@ function toIcsDate(dateISO: string, timeStr: string): string {
   return `${d}T${hh}${mm}00`;
 }
 
+function addHoursToIcsDate(dateISO: string, h: number, m: number, addHours: number): string {
+  const totalMinutes = h * 60 + m + addHours * 60;
+  const days = Math.floor(totalMinutes / (24 * 60));
+  const remMinutes = totalMinutes % (24 * 60);
+  const newH = Math.floor(remMinutes / 60);
+  const newM = remMinutes % 60;
+
+  if (days === 0) {
+    return `${dateISO.replace(/-/g, "")}T${String(newH).padStart(2, "0")}${String(newM).padStart(2, "0")}00`;
+  }
+  const d = new Date(dateISO + "T12:00:00");
+  d.setDate(d.getDate() + days);
+  const newDate = d.toISOString().slice(0, 10).replace(/-/g, "");
+  return `${newDate}T${String(newH).padStart(2, "0")}${String(newM).padStart(2, "0")}00`;
+}
+
 function toIcsDtstamp(): string {
   const now = new Date();
   return now.toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "").slice(0, 15) + "Z";
@@ -37,7 +53,7 @@ function escapeIcs(str: string): string {
   return str.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
 
-router.get("/calendar.ics", async (req, res) => {
+router.get("/calendar", async (req, res) => {
   let proposals: Proposal[] = [];
 
   try {
@@ -53,9 +69,7 @@ router.get("/calendar.ics", async (req, res) => {
       const time = extractTime(p.dateText);
       const dtstart = toIcsDate(p.dateISO!, time);
       const [h, m] = time.split(":").map(Number);
-      const endH = String((h + 2) % 24).padStart(2, "0");
-      const endM = String(m).padStart(2, "0");
-      const dtend = `${p.dateISO!.replace(/-/g, "")}T${endH}${endM}00`;
+      const dtend = addHoursToIcsDate(p.dateISO!, h, m, 2);
       const summary = p.rallyName ? `WRC 10 · ${escapeIcs(p.rallyName)}` : "WRC 10 Mänguõhtu";
       const descParts: string[] = [];
       if (p.host) descParts.push(`Majavõõrustaja: ${p.host}`);
@@ -108,9 +122,11 @@ router.get("/calendar.ics", async (req, res) => {
     "END:VCALENDAR",
   ].join("\r\n");
 
-  res.setHeader("Content-Type", "text/calendar; charset=utf-8");
-  res.setHeader("Content-Disposition", 'attachment; filename="wrc10-liiga.ics"');
-  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.set({
+    "Content-Type": "text/calendar; charset=utf-8",
+    "Content-Disposition": 'attachment; filename="wrc10-liiga.ics"',
+    "Cache-Control": "no-cache, no-store, must-revalidate",
+  });
   res.send(ics);
 });
 
