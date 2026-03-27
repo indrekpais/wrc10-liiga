@@ -335,17 +335,19 @@ export default function App() {
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       {/* WRC-style top accent bar */}
-      <div className="h-1 w-full bg-yellow-400" />
+      <div className="h-1.5 w-full bg-yellow-400" style={{ boxShadow: '0 0 16px rgba(250,204,21,0.5)' }} />
 
       {/* Main header */}
-      <header className="bg-zinc-950 border-b border-zinc-800/80 relative overflow-hidden">
+      <header className="bg-zinc-950 border-b border-yellow-400/10 relative overflow-hidden">
+        {/* Subtle gradient backdrop */}
+        <div className="absolute inset-0 bg-gradient-to-r from-zinc-950 via-zinc-950 to-zinc-900/60 pointer-events-none" />
         {/* Decorative WRC car image */}
         <div className="absolute inset-0 pointer-events-none hidden sm:block">
           <img
             src={wrcCarImg}
             alt=""
-            className="absolute right-0 top-0 h-full object-cover object-left opacity-20"
-            style={{ width: "380px", maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.8) 100%)" }}
+            className="absolute right-0 top-0 h-full object-cover object-left opacity-[0.27]"
+            style={{ width: "420px", maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.5) 35%, rgba(0,0,0,0.9) 100%)" }}
           />
         </div>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative">
@@ -353,9 +355,9 @@ export default function App() {
 
             {/* Logo / Branding */}
             <div className="flex items-center gap-3 py-4">
-              <div className="flex items-center gap-1">
-                <div className="w-1 h-8 bg-yellow-400 skew-x-[-10deg]" />
-                <div className="w-1 h-8 bg-yellow-400/40 skew-x-[-10deg] ml-0.5" />
+              <div className="flex items-center gap-1" style={{ filter: 'drop-shadow(0 0 8px rgba(250,204,21,0.7))' }}>
+                <div className="w-1.5 h-9 bg-yellow-400 skew-x-[-10deg]" />
+                <div className="w-1 h-9 bg-yellow-400/50 skew-x-[-10deg] ml-0.5" />
               </div>
               <div>
                 <div className="wrc-heading text-2xl sm:text-3xl text-white leading-none tracking-wider">
@@ -374,11 +376,12 @@ export default function App() {
                 <button
                   key={i}
                   onClick={() => switchTab(i)}
-                  className={`wrc-heading px-4 sm:px-5 py-0 text-sm sm:text-base border-b-2 transition-colors whitespace-nowrap ${
+                  className={`wrc-heading px-4 sm:px-5 py-0 text-sm sm:text-base border-b-2 transition-all whitespace-nowrap ${
                     activeTab === i
                       ? "text-yellow-400 border-yellow-400"
-                      : "text-zinc-400 border-transparent hover:text-white hover:border-zinc-600"
+                      : "text-zinc-500 border-transparent hover:text-zinc-200 hover:border-zinc-500"
                   }`}
+                  style={activeTab === i ? { textShadow: '0 0 20px rgba(250,204,21,0.5)' } : {}}
                 >
                   {tab}
                 </button>
