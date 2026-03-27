@@ -5,6 +5,8 @@ type Props = {
   proposals: Proposal[];
   setProposals: React.Dispatch<React.SetStateAction<Proposal[]>>;
   drivers: string[];
+  myName: string;
+  setMyName: (name: string) => void;
 };
 
 const RESPONSE_LABELS: Record<string, string> = {
@@ -12,13 +14,11 @@ const RESPONSE_LABELS: Record<string, string> = {
   maybe: "🤔 Võib-olla",
   no: "❌ Ei sobi",
 };
-
 const RESPONSE_COLORS: Record<string, string> = {
   yes: "bg-green-600 hover:bg-green-500",
   maybe: "bg-yellow-600 hover:bg-yellow-500",
   no: "bg-red-700 hover:bg-red-600",
 };
-
 const RESPONSE_ACTIVE: Record<string, string> = {
   yes: "ring-2 ring-green-400",
   maybe: "ring-2 ring-yellow-300",
@@ -53,20 +53,23 @@ function generateTimes(): string[] {
 
 const TIME_OPTIONS = generateTimes();
 
-export default function CalendarTab({ proposals, setProposals, drivers }: Props) {
-  const [myName, setMyName] = useState<string>(() =>
-    localStorage.getItem("wrcCurrentUser") || ""
-  );
+export default function CalendarTab({ proposals, setProposals, drivers, myName, setMyName }: Props) {
   const [newDateValue, setNewDateValue] = useState("");
   const [newTimeValue, setNewTimeValue] = useState("19:00");
   const [newHost, setNewHost] = useState("");
   const [newRallyName, setNewRallyName] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  function selectName(name: string) {
-    setMyName(name);
-    localStorage.setItem("wrcCurrentUser", name);
+  function copyLink() {
+    const url = `${window.location.origin}${window.location.pathname}#kalender`;
+    navigator.clipboard.writeText(url).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }
+
+  const todayStr = new Date().toISOString().split("T")[0];
 
   function addProposal() {
     if (!newDateValue || !myName) return;
@@ -75,6 +78,7 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
       id: Date.now(),
       proposedBy: myName,
       dateText: displayText,
+      dateISO: newDateValue,
       host: newHost.trim() || undefined,
       rallyName: newRallyName.trim() || undefined,
       responses: { [myName]: "yes" },
@@ -113,20 +117,38 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
       .map(([name]) => name);
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  // Sort proposals: those with dateISO sorted ascending, rest at end
+  const sortedProposals = [...proposals].sort((a, b) => {
+    if (a.dateISO && b.dateISO) return a.dateISO.localeCompare(b.dateISO);
+    if (a.dateISO) return -1;
+    if (b.dateISO) return 1;
+    return b.id - a.id;
+  });
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6 gap-4">
+      <div className="flex justify-between items-center mb-6 gap-4 flex-wrap">
         <h2 className="text-3xl font-bold">Kalender</h2>
-        {myName && (
+        <div className="flex gap-2 flex-wrap">
           <button
-            onClick={() => setShowForm(true)}
-            className="bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-bold transition-colors"
+            onClick={copyLink}
+            className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all border ${
+              copied
+                ? "border-green-500 text-green-400 bg-green-500/10"
+                : "border-zinc-600 text-zinc-300 hover:border-zinc-400 hover:text-white"
+            }`}
           >
-            + Paku aega
+            {copied ? "✓ Link kopeeritud!" : "🔗 Jaga linki"}
           </button>
-        )}
+          {myName && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="bg-green-500 hover:bg-green-600 px-6 py-2.5 rounded-xl font-bold transition-colors"
+            >
+              + Paku aega
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Name selector */}
@@ -136,11 +158,9 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
           {drivers.map((d) => (
             <button
               key={d}
-              onClick={() => selectName(d)}
+              onClick={() => setMyName(d)}
               className={`px-5 py-2 rounded-xl font-bold transition-colors ${
-                myName === d
-                  ? "bg-yellow-400 text-black"
-                  : "bg-zinc-800 hover:bg-zinc-700"
+                myName === d ? "bg-yellow-400 text-black" : "bg-zinc-800 hover:bg-zinc-700"
               }`}
             >
               {d}
@@ -150,6 +170,14 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
         {!myName && (
           <p className="text-zinc-500 text-sm mt-3">
             Vali oma nimi, et saaksid aegadele vastata ja uusi pakkuda.
+          </p>
+        )}
+        {myName && (
+          <p className="text-zinc-500 text-sm mt-3">
+            Tere, <span className="text-yellow-400 font-bold">{myName}</span>! Saa link ja jaga sõpradele →{" "}
+            <button onClick={copyLink} className="text-zinc-400 hover:text-white underline underline-offset-2">
+              kopeeri link
+            </button>
           </p>
         )}
       </div>
@@ -178,13 +206,10 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                   onChange={(e) => setNewTimeValue(e.target.value)}
                 >
                   {TIME_OPTIONS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
+                    <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
               </div>
-
               <div>
                 <label className="block text-sm text-zinc-400 mb-2">
                   Kelle juures mängime? <span className="text-zinc-600">(vabatahtlik)</span>
@@ -207,7 +232,6 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                   onChange={(e) => setNewRallyName(e.target.value)}
                 />
               </div>
-
               {newDateValue && (
                 <div className="bg-zinc-800 rounded-xl px-4 py-3 text-sm text-zinc-300">
                   <span className="text-zinc-500">Eelvaade: </span>
@@ -216,7 +240,6 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                   {newRallyName && <span className="text-zinc-400"> · {newRallyName}</span>}
                 </div>
               )}
-
               <div className="flex gap-3 mt-1">
                 <button
                   onClick={addProposal}
@@ -238,7 +261,7 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
       )}
 
       {/* Proposals */}
-      {proposals.length === 0 ? (
+      {sortedProposals.length === 0 ? (
         <div className="text-center py-16 text-zinc-500">
           <p className="text-5xl mb-4">📅</p>
           <p className="text-lg">Ühtegi ettepanekut pole veel.</p>
@@ -255,19 +278,27 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
         </div>
       ) : (
         <div className="flex flex-col gap-4">
-          {proposals.map((proposal) => {
+          {sortedProposals.map((proposal) => {
             const myResponse = myName ? proposal.responses[myName] : undefined;
             const yesNames = getRespondedNames(proposal, "yes");
             const maybeNames = getRespondedNames(proposal, "maybe");
             const noNames = getRespondedNames(proposal, "no");
             const totalDrivers = drivers.length;
-            const respondedCount = Object.keys(proposal.responses).length;
+            const isPast = proposal.dateISO ? proposal.dateISO < new Date().toISOString().split("T")[0] : false;
 
             return (
-              <div key={proposal.id} className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6">
+              <div
+                key={proposal.id}
+                className={`bg-zinc-900 border rounded-2xl p-6 transition-colors ${
+                  isPast ? "border-zinc-800 opacity-60" : "border-zinc-700"
+                }`}
+              >
                 <div className="flex justify-between items-start gap-4 mb-4">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xl font-bold">{proposal.dateText}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-xl font-bold">{proposal.dateText}</p>
+                      {isPast && <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">möödunud</span>}
+                    </div>
                     <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
                       {proposal.rallyName && (
                         <span className="text-sm bg-yellow-400/10 text-yellow-400 border border-yellow-400/20 px-2.5 py-0.5 rounded-lg font-medium">
@@ -281,9 +312,8 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                       )}
                     </div>
                     <p className="text-zinc-500 text-sm mt-1.5">
-                      <span className="text-zinc-500">Pakkuja: </span>
-                      <span className="text-yellow-400">{proposal.proposedBy}</span>
-                      {" · "}{respondedCount}/{totalDrivers} vastanud
+                      Pakkuja: <span className="text-yellow-400">{proposal.proposedBy}</span>
+                      {" · "}{Object.keys(proposal.responses).length}/{totalDrivers} vastanud
                     </p>
                   </div>
                   {myName === proposal.proposedBy && (
@@ -296,7 +326,6 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                   )}
                 </div>
 
-                {/* Response summary */}
                 <div className="flex flex-col gap-1 mb-4 text-sm">
                   {yesNames.length > 0 && (
                     <div>
@@ -321,8 +350,7 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                   )}
                 </div>
 
-                {/* Voting buttons */}
-                {myName && (
+                {myName && !isPast && (
                   <div className="flex gap-2 flex-wrap">
                     {(["yes", "maybe", "no"] as const).map((r) => (
                       <button
@@ -332,28 +360,17 @@ export default function CalendarTab({ proposals, setProposals, drivers }: Props)
                           myResponse === r ? RESPONSE_ACTIVE[r] : "opacity-70 hover:opacity-100"
                         }`}
                       >
-                        {RESPONSE_LABELS[r]}
-                        {myResponse === r && " ✓"}
+                        {RESPONSE_LABELS[r]}{myResponse === r && " ✓"}
                       </button>
                     ))}
                   </div>
                 )}
 
-                {/* Progress bar */}
                 {totalDrivers > 0 && (
                   <div className="mt-4 flex h-2 rounded-full overflow-hidden bg-zinc-800">
-                    <div
-                      className="bg-green-500 transition-all"
-                      style={{ width: `${(yesNames.length / totalDrivers) * 100}%` }}
-                    />
-                    <div
-                      className="bg-yellow-500 transition-all"
-                      style={{ width: `${(maybeNames.length / totalDrivers) * 100}%` }}
-                    />
-                    <div
-                      className="bg-red-600 transition-all"
-                      style={{ width: `${(noNames.length / totalDrivers) * 100}%` }}
-                    />
+                    <div className="bg-green-500 transition-all" style={{ width: `${(yesNames.length / totalDrivers) * 100}%` }} />
+                    <div className="bg-yellow-500 transition-all" style={{ width: `${(maybeNames.length / totalDrivers) * 100}%` }} />
+                    <div className="bg-red-600 transition-all" style={{ width: `${(noNames.length / totalDrivers) * 100}%` }} />
                   </div>
                 )}
               </div>

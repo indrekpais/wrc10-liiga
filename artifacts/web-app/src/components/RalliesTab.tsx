@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Rally } from "../App";
+import type { Rally, Proposal } from "../App";
 import { calculateRallyResults, formatTime, formatGap, parseTime } from "../App";
 
 type Props = {
@@ -9,9 +9,25 @@ type Props = {
   currentRallyId: number | null;
   setCurrentRallyId: React.Dispatch<React.SetStateAction<number | null>>;
   activeSeason: number;
+  proposals: Proposal[];
+  setProposals: React.Dispatch<React.SetStateAction<Proposal[]>>;
+  myName: string;
+  setMyName: (name: string) => void;
+  onOpenCalendar: () => void;
 };
 
-export default function RalliesTab({ rallies, setRallies, drivers, currentRallyId, setCurrentRallyId, activeSeason }: Props) {
+const RESPONSE_COLORS: Record<string, string> = {
+  yes: "bg-green-600 hover:bg-green-500",
+  maybe: "bg-yellow-600 hover:bg-yellow-500",
+  no: "bg-red-700 hover:bg-red-600",
+};
+const RESPONSE_ACTIVE: Record<string, string> = {
+  yes: "ring-2 ring-green-400",
+  maybe: "ring-2 ring-yellow-300",
+  no: "ring-2 ring-red-400",
+};
+
+export default function RalliesTab({ rallies, setRallies, drivers, currentRallyId, setCurrentRallyId, activeSeason, proposals, setProposals, myName, setMyName, onOpenCalendar }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDate, setNewDate] = useState("");
@@ -128,8 +144,104 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
     return { complete: complete.length, total: drivers.length };
   }
 
+  // Upcoming events: proposals with future dateISO or no dateISO, sorted ascending
+  const todayISO = new Date().toISOString().split("T")[0];
+  const upcomingProposals = [...proposals]
+    .filter((p) => !p.dateISO || p.dateISO >= todayISO)
+    .sort((a, b) => {
+      if (a.dateISO && b.dateISO) return a.dateISO.localeCompare(b.dateISO);
+      if (a.dateISO) return -1;
+      if (b.dateISO) return 1;
+      return b.id - a.id;
+    })
+    .slice(0, 3);
+
+  function respondToProposal(proposalId: number, response: "yes" | "no" | "maybe") {
+    if (!myName) return;
+    setProposals((prev) =>
+      prev.map((p) => {
+        if (p.id !== proposalId) return p;
+        const current = p.responses[myName];
+        if (current === response) {
+          const updated = { ...p.responses };
+          delete updated[myName];
+          return { ...p, responses: updated };
+        }
+        return { ...p, responses: { ...p.responses, [myName]: response } };
+      })
+    );
+  }
+
   return (
     <div>
+      {/* Upcoming events widget */}
+      {upcomingProposals.length > 0 && (
+        <div className="mb-8 bg-zinc-900 border border-zinc-700 rounded-2xl p-5">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-lg">📅 Järgmised mängukorrad</h3>
+            <button
+              onClick={onOpenCalendar}
+              className="text-sm text-zinc-400 hover:text-yellow-400 transition-colors"
+            >
+              Vaata kõiki →
+            </button>
+          </div>
+
+          {/* Name selector if not set */}
+          {!myName && (
+            <div className="mb-4 flex flex-wrap gap-2 items-center">
+              <span className="text-zinc-500 text-sm">Kes sa oled?</span>
+              {drivers.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setMyName(d)}
+                  className="px-3 py-1 rounded-lg text-sm font-bold bg-zinc-800 hover:bg-zinc-700 transition-colors"
+                >
+                  {d}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3">
+            {upcomingProposals.map((proposal) => {
+              const myResponse = myName ? proposal.responses[myName] : undefined;
+              const yesCount = Object.values(proposal.responses).filter((r) => r === "yes").length;
+              const maybeCount = Object.values(proposal.responses).filter((r) => r === "maybe").length;
+              return (
+                <div key={proposal.id} className="flex flex-col sm:flex-row sm:items-center gap-3 bg-zinc-800 rounded-xl px-4 py-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-sm">{proposal.dateText}</p>
+                    <p className="text-xs text-zinc-500 mt-0.5">
+                      {yesCount > 0 && <span className="text-green-400">✅ {yesCount}</span>}
+                      {maybeCount > 0 && <span className="text-yellow-400 ml-2">🤔 {maybeCount}</span>}
+                      {proposal.rallyName && <span className="ml-2 text-zinc-400">· {proposal.rallyName}</span>}
+                      {proposal.host && <span className="ml-2 text-zinc-400">· {proposal.host}</span>}
+                    </p>
+                  </div>
+                  {myName && (
+                    <div className="flex gap-1.5 shrink-0">
+                      {(["yes", "maybe", "no"] as const).map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => respondToProposal(proposal.id, r)}
+                          title={r === "yes" ? "Sobib" : r === "maybe" ? "Võib-olla" : "Ei sobi"}
+                          className={`w-9 h-9 rounded-lg text-base transition-all ${RESPONSE_COLORS[r]} ${
+                            myResponse === r ? RESPONSE_ACTIVE[r] : "opacity-60 hover:opacity-100"
+                          }`}
+                        >
+                          {r === "yes" ? "✅" : r === "maybe" ? "🤔" : "❌"}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-3xl font-bold">Rallid</h2>
         <button

@@ -19,6 +19,7 @@ export type Proposal = {
   id: number;
   proposedBy: string;
   dateText: string;
+  dateISO?: string;
   host?: string;
   rallyName?: string;
   responses: Record<string, "yes" | "no" | "maybe">;
@@ -66,41 +67,21 @@ export type DriverResult = {
 
 export function calculateRallyResults(rally: Rally, drivers: string[]): DriverResult[] {
   const results: DriverResult[] = [];
-
   drivers.forEach((driver) => {
     const times = rally.results[driver] || [];
     if (times.length < rally.stages || times.some((t) => !t)) return;
-
     let total = 0;
     times.forEach((t) => { total += parseTime(t); });
-
-    results.push({
-      driver,
-      total,
-      psTime: parseTime(times[rally.stages - 1]),
-      rank: 0,
-      overallPts: 0,
-      psPts: 0,
-      totalPts: 0,
-    });
+    results.push({ driver, total, psTime: parseTime(times[rally.stages - 1]), rank: 0, overallPts: 0, psPts: 0, totalPts: 0 });
   });
-
   results.sort((a, b) => a.total - b.total);
   results.forEach((d, i) => {
-    const rank = i + 1;
-    d.rank = rank;
-    d.overallPts = rank < POINTS_TABLE.length ? POINTS_TABLE[rank] : 0;
+    d.rank = i + 1;
+    d.overallPts = d.rank < POINTS_TABLE.length ? POINTS_TABLE[d.rank] : 0;
   });
-
   const psSorted = [...results].sort((a, b) => a.psTime - b.psTime);
-  psSorted.forEach((d, i) => {
-    d.psPts = i < 5 ? PS_POINTS_TABLE[i] : 0;
-  });
-
-  results.forEach((d) => {
-    d.totalPts = (d.overallPts || 0) + (d.psPts || 0);
-  });
-
+  psSorted.forEach((d, i) => { d.psPts = i < 5 ? PS_POINTS_TABLE[i] : 0; });
+  results.forEach((d) => { d.totalPts = (d.overallPts || 0) + (d.psPts || 0); });
   return results;
 }
 
@@ -112,8 +93,16 @@ const DEFAULT_RALLIES: Rally[] = [
 
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
+const TAB_HASHES = ["rallid", "juhid", "uldarvestus", "kalender"];
+
+function getInitialTab(): number {
+  const hash = window.location.hash.replace("#", "").toLowerCase();
+  const idx = TAB_HASHES.indexOf(hash);
+  return idx >= 0 ? idx : 0;
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeTab, setActiveTab] = useState<number>(getInitialTab);
   const [drivers, setDrivers] = useState<string[]>(DEFAULT_DRIVERS);
   const [rallies, setRallies] = useState<Rally[]>(DEFAULT_RALLIES);
   const [proposals, setProposals] = useState<Proposal[]>([]);
@@ -121,11 +110,30 @@ export default function App() {
   const [activeSeason, setActiveSeason] = useState<number>(CURRENT_YEAR);
   const [dataLoaded, setDataLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [myName, setMyName] = useState<string>(() => localStorage.getItem("wrcCurrentUser") || "");
 
-  const { data: serverData } = useGetAppData({
-    query: { refetchInterval: 30000 },
-  });
+  function selectMyName(name: string) {
+    setMyName(name);
+    localStorage.setItem("wrcCurrentUser", name);
+  }
 
+  function switchTab(idx: number) {
+    setActiveTab(idx);
+    window.location.hash = TAB_HASHES[idx];
+  }
+
+  // Sync tab when hash changes (e.g. browser back/forward)
+  useEffect(() => {
+    function onHashChange() {
+      const hash = window.location.hash.replace("#", "").toLowerCase();
+      const idx = TAB_HASHES.indexOf(hash);
+      if (idx >= 0) setActiveTab(idx);
+    }
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
+
+  const { data: serverData } = useGetAppData({ query: { refetchInterval: 30000 } });
   const pendingSaveRef = useRef(false);
 
   useEffect(() => {
@@ -137,7 +145,6 @@ export default function App() {
       setDataLoaded(true);
       return;
     }
-    // Real-time update: only apply server data if we're not in the middle of saving
     if (!pendingSaveRef.current) {
       const serverStr = JSON.stringify({ d: serverData.drivers, r: serverData.rallies, p: serverData.proposals });
       const localStr = JSON.stringify({ d: drivers, r: rallies, p: proposals });
@@ -151,7 +158,6 @@ export default function App() {
   }, [serverData]);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   const saveToServer = useCallback((d: string[], r: Rally[], p: Proposal[]) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     pendingSaveRef.current = true;
@@ -163,10 +169,7 @@ export default function App() {
           pendingSaveRef.current = false;
           setTimeout(() => setSaveStatus("idle"), 2000);
         })
-        .catch(() => {
-          setSaveStatus("error");
-          pendingSaveRef.current = false;
-        });
+        .catch(() => { setSaveStatus("error"); pendingSaveRef.current = false; });
     }, 800);
   }, []);
 
@@ -183,9 +186,7 @@ export default function App() {
     const year = prompt("Uue hooaja aasta:", String(CURRENT_YEAR + 1));
     if (!year) return;
     const num = parseInt(year);
-    if (!isNaN(num) && num > 2000 && num < 2100) {
-      setActiveSeason(num);
-    }
+    if (!isNaN(num) && num > 2000 && num < 2100) setActiveSeason(num);
   }
 
   function handleSeasonChange(season: number) {
@@ -209,23 +210,19 @@ export default function App() {
     <div className="min-h-screen bg-zinc-950 text-white">
       <div className="max-w-7xl mx-auto p-6">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-          <div className="flex items-baseline gap-4">
+          <div className="flex items-baseline gap-4 flex-wrap">
             <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">WRC 10 • Meie Liiga</h1>
             {saveStatus !== "idle" && (
-              <span className={`text-sm font-medium transition-all ${saveIndicator.color}`}>
-                {saveIndicator.text}
-              </span>
+              <span className={`text-sm font-medium ${saveIndicator.color}`}>{saveIndicator.text}</span>
             )}
           </div>
           <div className="flex gap-2 sm:gap-4 flex-wrap">
             {tabs.map((tab, i) => (
               <button
                 key={i}
-                onClick={() => setActiveTab(i)}
+                onClick={() => switchTab(i)}
                 className={`px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-bold transition-colors text-sm sm:text-base ${
-                  activeTab === i
-                    ? "bg-yellow-400 text-black"
-                    : "text-white hover:bg-zinc-800"
+                  activeTab === i ? "bg-yellow-400 text-black" : "text-white hover:bg-zinc-800"
                 }`}
               >
                 {tab}
@@ -241,9 +238,7 @@ export default function App() {
               key={s}
               onClick={() => handleSeasonChange(s)}
               className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${
-                activeSeason === s
-                  ? "bg-yellow-400 text-black"
-                  : "bg-zinc-800 hover:bg-zinc-700 text-white"
+                activeSeason === s ? "bg-yellow-400 text-black" : "bg-zinc-800 hover:bg-zinc-700 text-white"
               }`}
             >
               {s}
@@ -269,6 +264,11 @@ export default function App() {
             currentRallyId={currentRallyId}
             setCurrentRallyId={setCurrentRallyId}
             activeSeason={activeSeason}
+            proposals={proposals}
+            setProposals={setProposals}
+            myName={myName}
+            setMyName={selectMyName}
+            onOpenCalendar={() => switchTab(3)}
           />
         )}
         {dataLoaded && activeTab === 1 && (
@@ -278,7 +278,13 @@ export default function App() {
           <ChampionshipTab rallies={championshipRallies} drivers={drivers} activeSeason={activeSeason} />
         )}
         {dataLoaded && activeTab === 3 && (
-          <CalendarTab proposals={proposals} setProposals={setProposals} drivers={drivers} />
+          <CalendarTab
+            proposals={proposals}
+            setProposals={setProposals}
+            drivers={drivers}
+            myName={myName}
+            setMyName={selectMyName}
+          />
         )}
       </div>
     </div>
