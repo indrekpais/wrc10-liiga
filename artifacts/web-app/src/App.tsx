@@ -45,6 +45,15 @@ export function formatTime(seconds: number): string {
   return `${min}:${sec.padStart(6, "0")}`;
 }
 
+export function formatGap(seconds: number): string {
+  if (seconds === 0) return "–";
+  if (seconds === Infinity || isNaN(seconds)) return "–";
+  const min = Math.floor(seconds / 60);
+  const sec = (seconds % 60).toFixed(3).replace(".", ",");
+  if (min === 0) return `+${sec.padStart(6, "0")}`;
+  return `+${min}:${sec.padStart(6, "0")}`;
+}
+
 export type DriverResult = {
   driver: string;
   total: number;
@@ -101,6 +110,8 @@ const DEFAULT_RALLIES: Rally[] = [
   { id: 1, name: "Monte Carlo", date: "10/11.04", stages: 15, results: {}, season: CURRENT_YEAR },
 ];
 
+export type SaveStatus = "idle" | "saving" | "saved" | "error";
+
 export default function App() {
   const [activeTab, setActiveTab] = useState(0);
   const [drivers, setDrivers] = useState<string[]>(DEFAULT_DRIVERS);
@@ -109,26 +120,53 @@ export default function App() {
   const [currentRallyId, setCurrentRallyId] = useState<number | null>(null);
   const [activeSeason, setActiveSeason] = useState<number>(CURRENT_YEAR);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
-  const { data: serverData } = useGetAppData();
+  const { data: serverData } = useGetAppData({
+    query: { refetchInterval: 30000 },
+  });
+
+  const pendingSaveRef = useRef(false);
 
   useEffect(() => {
-    if (serverData && !dataLoaded) {
+    if (!serverData) return;
+    if (!dataLoaded) {
       if (serverData.drivers?.length) setDrivers(serverData.drivers as string[]);
       if (serverData.rallies?.length) setRallies(serverData.rallies as Rally[]);
       if (serverData.proposals?.length) setProposals(serverData.proposals as Proposal[]);
       setDataLoaded(true);
-    } else if (serverData && dataLoaded === false) {
-      setDataLoaded(true);
+      return;
     }
-  }, [serverData, dataLoaded]);
+    // Real-time update: only apply server data if we're not in the middle of saving
+    if (!pendingSaveRef.current) {
+      const serverStr = JSON.stringify({ d: serverData.drivers, r: serverData.rallies, p: serverData.proposals });
+      const localStr = JSON.stringify({ d: drivers, r: rallies, p: proposals });
+      if (serverStr !== localStr) {
+        if (serverData.drivers?.length) setDrivers(serverData.drivers as string[]);
+        if (serverData.rallies) setRallies(serverData.rallies as Rally[]);
+        if (serverData.proposals) setProposals(serverData.proposals as Proposal[]);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverData]);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const saveToServer = useCallback((d: string[], r: Rally[], p: Proposal[]) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    pendingSaveRef.current = true;
+    setSaveStatus("saving");
     saveTimerRef.current = setTimeout(() => {
-      updateAppData({ drivers: d, rallies: r as never, proposals: p as never }).catch(console.error);
+      updateAppData({ drivers: d, rallies: r as never, proposals: p as never })
+        .then(() => {
+          setSaveStatus("saved");
+          pendingSaveRef.current = false;
+          setTimeout(() => setSaveStatus("idle"), 2000);
+        })
+        .catch(() => {
+          setSaveStatus("error");
+          pendingSaveRef.current = false;
+        });
     }, 800);
   }, []);
 
@@ -160,11 +198,25 @@ export default function App() {
 
   const tabs = ["RALLID", "JUHID", "ÜLDARVESTUS", "KALENDER"];
 
+  const saveIndicator = {
+    saving: { text: "Salvestab...", color: "text-zinc-400" },
+    saved: { text: "✓ Salvestatud", color: "text-green-400" },
+    error: { text: "✗ Viga!", color: "text-red-400" },
+    idle: { text: "", color: "" },
+  }[saveStatus];
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <div className="max-w-7xl mx-auto p-6">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-          <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">WRC 10 • Meie Liiga</h1>
+          <div className="flex items-baseline gap-4">
+            <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">WRC 10 • Meie Liiga</h1>
+            {saveStatus !== "idle" && (
+              <span className={`text-sm font-medium transition-all ${saveIndicator.color}`}>
+                {saveIndicator.text}
+              </span>
+            )}
+          </div>
           <div className="flex gap-2 sm:gap-4 flex-wrap">
             {tabs.map((tab, i) => (
               <button
@@ -206,7 +258,7 @@ export default function App() {
         </div>
 
         {!dataLoaded && (
-          <div className="text-center text-zinc-400 py-20 text-lg">Laen andmeid...</div>
+          <div className="text-center text-zinc-400 py-20 text-lg animate-pulse">Laen andmeid...</div>
         )}
 
         {dataLoaded && activeTab === 0 && (

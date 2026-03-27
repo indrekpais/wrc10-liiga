@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Rally } from "../App";
-import { calculateRallyResults, formatTime, parseTime } from "../App";
+import { calculateRallyResults, formatTime, formatGap, parseTime } from "../App";
 
 type Props = {
   rallies: Rally[];
@@ -17,9 +17,6 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
   const [newDate, setNewDate] = useState("");
   const [newStages, setNewStages] = useState("15");
   const [newQuickRace, setNewQuickRace] = useState(false);
-
-  const todayStr = new Date().toISOString().split("T")[0];
-  void todayStr;
 
   function formatRallyDate(dateStr: string): string {
     if (!dateStr) return "";
@@ -96,16 +93,39 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
     );
   }
 
+  function deleteRally(id: number) {
+    if (!confirm("Kustutada see ralli?")) return;
+    setRallies((prev) => prev.filter((r) => r.id !== id));
+    if (currentRallyId === id) setCurrentRallyId(null);
+  }
+
+  // Compute best time per stage and results for active rally
   const results = activeRally ? calculateRallyResults(activeRally, drivers) : [];
+  const leaderTime = results.length > 0 ? results[0].total : 0;
 
   function getDriverResult(driver: string) {
     return results.find((d) => d.driver === driver);
   }
 
-  function deleteRally(id: number) {
-    if (!confirm("Kustutada see ralli?")) return;
-    setRallies((prev) => prev.filter((r) => r.id !== id));
-    if (currentRallyId === id) setCurrentRallyId(null);
+  // Fastest time per stage index across all drivers (for highlight)
+  const bestStageTimes: number[] = activeRally
+    ? Array.from({ length: activeRally.stages }, (_, i) =>
+        Math.min(
+          ...drivers.map((driver) => {
+            const t = (activeRally.results[driver] || [])[i];
+            return t ? parseTime(t) : Infinity;
+          })
+        )
+      )
+    : [];
+
+  // Completion info: count drivers with all stages filled
+  function getRallyCompletion(r: Rally) {
+    const complete = drivers.filter((driver) => {
+      const times = r.results[driver] || [];
+      return times.length >= r.stages && times.every((t) => t.trim());
+    });
+    return { complete: complete.length, total: drivers.length };
   }
 
   return (
@@ -132,6 +152,8 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
                   placeholder="nt Monte Carlo"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && createRally()}
+                  autoFocus
                 />
               </div>
               <div>
@@ -186,40 +208,51 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-        {rallies.map((r) => (
-          <div
-            key={r.id}
-            onClick={() => setCurrentRallyId(r.id)}
-            className={`p-6 rounded-3xl border cursor-pointer transition-colors ${
-              r.id === currentRallyId
-                ? r.quickRace ? "border-orange-400 bg-zinc-800" : "border-yellow-400 bg-zinc-800"
-                : "border-zinc-700 hover:border-zinc-500"
-            }`}
-          >
-            <div className="flex justify-between items-start">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="font-bold text-xl">{r.name}</h4>
-                  {r.quickRace && (
-                    <span className="text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 px-2 py-0.5 rounded-full">
-                      ⚡ Quick Race
-                    </span>
-                  )}
+        {rallies.map((r) => {
+          const { complete, total } = getRallyCompletion(r);
+          const pct = total > 0 ? (complete / total) * 100 : 0;
+          return (
+            <div
+              key={r.id}
+              onClick={() => setCurrentRallyId(r.id)}
+              className={`p-6 rounded-3xl border cursor-pointer transition-colors ${
+                r.id === currentRallyId
+                  ? r.quickRace ? "border-orange-400 bg-zinc-800" : "border-yellow-400 bg-zinc-800"
+                  : "border-zinc-700 hover:border-zinc-500"
+              }`}
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h4 className="font-bold text-xl">{r.name}</h4>
+                    {r.quickRace && (
+                      <span className="text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 px-2 py-0.5 rounded-full">
+                        ⚡ Quick Race
+                      </span>
+                    )}
+                  </div>
+                  <p className={r.quickRace ? "text-orange-400" : "text-yellow-400"}>{r.date}</p>
+                  <p className="text-sm text-zinc-400 mt-2">
+                    {r.stages} etappi • {complete}/{total} juhti lõpetanud
+                  </p>
                 </div>
-                <p className={r.quickRace ? "text-orange-400" : "text-yellow-400"}>{r.date}</p>
-                <p className="text-sm text-zinc-400 mt-2">
-                  {r.stages} etappi • {Object.keys(r.results || {}).length}/{drivers.length} juhti
-                </p>
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteRally(r.id); }}
+                  className="text-zinc-600 hover:text-red-500 transition-colors text-lg ml-2 flex-shrink-0"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                onClick={(e) => { e.stopPropagation(); deleteRally(r.id); }}
-                className="text-zinc-600 hover:text-red-500 transition-colors text-lg ml-2 flex-shrink-0"
-              >
-                ✕
-              </button>
+              {/* Completion bar */}
+              <div className="mt-3 h-1.5 rounded-full bg-zinc-700 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${pct === 100 ? "bg-green-500" : r.quickRace ? "bg-orange-400" : "bg-yellow-400"}`}
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {activeRally && (
@@ -268,6 +301,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
                   </th>
                 ))}
                 <th className="bg-yellow-400 text-black font-bold p-2 min-w-[110px] text-center">Koguaeg</th>
+                <th className="bg-yellow-400 text-black font-bold p-2 min-w-[100px] text-center">Vahe</th>
                 <th className="bg-yellow-400 text-black font-bold p-2 min-w-[60px] text-center">Koht</th>
                 {!activeRally.quickRace && (
                   <>
@@ -282,22 +316,35 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
               {drivers.map((driver) => {
                 const times = activeRally.results[driver] || new Array(activeRally.stages).fill("");
                 const dr = getDriverResult(driver);
+                const gap = dr ? dr.total - leaderTime : null;
                 return (
                   <tr key={driver} className="border-b border-zinc-700">
                     <td className="font-bold p-2 sticky left-0 bg-zinc-900 z-10">{driver}</td>
-                    {Array.from({ length: activeRally.stages }, (_, i) => (
-                      <td key={i} className="p-1">
-                        <input
-                          type="text"
-                          defaultValue={times[i] || ""}
-                          key={`${activeRally.id}-${driver}-${i}-${activeRally.stages}`}
-                          onBlur={(e) => updateTime(driver, i, e.target.value)}
-                          className="w-full bg-zinc-800 text-white text-center px-1 py-1 rounded border border-zinc-700 focus:outline-none focus:border-yellow-400 font-mono text-sm"
-                          placeholder="–"
-                        />
-                      </td>
-                    ))}
+                    {Array.from({ length: activeRally.stages }, (_, i) => {
+                      const rawTime = times[i] || "";
+                      const parsed = rawTime ? parseTime(rawTime) : Infinity;
+                      const isBest = parsed !== Infinity && bestStageTimes[i] !== Infinity && parsed === bestStageTimes[i];
+                      return (
+                        <td key={i} className="p-1">
+                          <input
+                            type="text"
+                            defaultValue={rawTime}
+                            key={`${activeRally.id}-${driver}-${i}-${activeRally.stages}`}
+                            onBlur={(e) => updateTime(driver, i, e.target.value)}
+                            className={`w-full text-center px-1 py-1 rounded border focus:outline-none font-mono text-sm transition-colors ${
+                              isBest
+                                ? "bg-green-900/40 border-green-600 text-green-300"
+                                : "bg-zinc-800 border-zinc-700 text-white focus:border-yellow-400"
+                            }`}
+                            placeholder="–"
+                          />
+                        </td>
+                      );
+                    })}
                     <td className="font-mono text-center p-2">{dr ? formatTime(dr.total) : "–"}</td>
+                    <td className={`font-mono text-center p-2 text-sm ${gap !== null && gap === 0 ? "text-yellow-400 font-bold" : "text-zinc-400"}`}>
+                      {dr ? (gap === 0 ? "Liider" : formatGap(gap!)) : "–"}
+                    </td>
                     <td className="text-center font-bold p-2">{dr ? dr.rank : "–"}</td>
                     {!activeRally.quickRace && (
                       <>
@@ -312,8 +359,16 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
             </tbody>
           </table>
 
-          <p className="text-sm text-zinc-500 mt-4">
-            * Tulemused arvutatakse automaatselt. Sisesta ajad kujul <span className="font-mono text-zinc-300">m:ss,sss</span> (nt <span className="font-mono text-zinc-300">3:42,150</span>). Tulemused salvestatakse automaatselt.
+          {results.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-4 text-sm text-zinc-500">
+              <span>🏆 <span className="text-white font-bold">{results[0].driver}</span> · {formatTime(results[0].total)}</span>
+              {results[1] && <span>· 2. <span className="text-zinc-300">{results[1].driver}</span> {formatGap(results[1].total - results[0].total)}</span>}
+              {results[2] && <span>· 3. <span className="text-zinc-300">{results[2].driver}</span> {formatGap(results[2].total - results[0].total)}</span>}
+            </div>
+          )}
+
+          <p className="text-sm text-zinc-500 mt-3">
+            * Sisesta ajad kujul <span className="font-mono text-zinc-300">m:ss,sss</span> (nt <span className="font-mono text-zinc-300">3:42,150</span>). <span className="text-green-500">Roheline</span> = etapi parim aeg.
           </p>
         </div>
       )}
