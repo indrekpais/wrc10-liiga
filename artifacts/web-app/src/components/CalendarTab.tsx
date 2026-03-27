@@ -60,12 +60,22 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
   const [newRallyName, setNewRallyName] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [showIcsPanel, setShowIcsPanel] = useState(false);
+  const [icsCopied, setIcsCopied] = useState(false);
+  const ICS_URL = "https://wrc-10.netlify.app/.netlify/functions/calendar";
 
   function copyLink() {
     const url = `${window.location.origin}${window.location.pathname}#kalender`;
     navigator.clipboard.writeText(url).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  function copyIcsUrl() {
+    navigator.clipboard.writeText(ICS_URL).then(() => {
+      setIcsCopied(true);
+      setTimeout(() => setIcsCopied(false), 2000);
     });
   }
 
@@ -129,7 +139,7 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
     <div>
       <div className="flex justify-between items-center mb-6 gap-4 flex-wrap">
         <h2 className="wrc-heading text-3xl sm:text-4xl text-white pl-3 border-l-4 border-yellow-400">Kalender</h2>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
           <button
             onClick={copyLink}
             className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all border ${
@@ -140,6 +150,44 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
           >
             {copied ? "✓ Link kopeeritud!" : "🔗 Jaga linki"}
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowIcsPanel((v) => !v)}
+              className={`px-4 py-2.5 rounded-xl font-bold text-sm transition-all border ${
+                showIcsPanel
+                  ? "border-yellow-400 text-yellow-400 bg-yellow-400/10"
+                  : "border-zinc-600 text-zinc-300 hover:border-zinc-400 hover:text-white"
+              }`}
+            >
+              📅 Telli kalendrisse
+            </button>
+            {showIcsPanel && (
+              <div className="absolute right-0 top-full mt-2 z-50 w-80 bg-zinc-900 border border-zinc-700 rounded-2xl p-4 shadow-2xl">
+                <p className="text-white font-bold text-sm mb-1">Telli mängukorrad oma kalendrisse</p>
+                <p className="text-zinc-400 text-xs mb-3">Sobib Google Calendar, Apple Calendar ja Outlook. Uueneb automaatselt.</p>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    readOnly
+                    value={ICS_URL}
+                    className="flex-1 bg-zinc-800 border border-zinc-600 text-zinc-300 text-xs px-2 py-1.5 rounded-lg truncate focus:outline-none"
+                  />
+                  <button
+                    onClick={copyIcsUrl}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                      icsCopied ? "bg-green-600 text-white" : "bg-zinc-700 hover:bg-zinc-600 text-white"
+                    }`}
+                  >
+                    {icsCopied ? "✓" : "Kopeeri"}
+                  </button>
+                </div>
+                <div className="space-y-2 text-xs text-zinc-400">
+                  <p className="font-semibold text-zinc-300">Kuidas lisada:</p>
+                  <p>📱 <span className="text-white">iPhone:</span> Seaded → Kalender → Kontod → Lisa konto → Muu → Lisa tellitud kalender</p>
+                  <p>🖥️ <span className="text-white">Google Calendar:</span> Muud kalendrid → URL kaudu</p>
+                </div>
+              </div>
+            )}
+          </div>
           {myName && (
             <button
               onClick={() => setShowForm(true)}

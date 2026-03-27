@@ -4,6 +4,7 @@ import DriversTab from "./components/DriversTab";
 import ChampionshipTab from "./components/ChampionshipTab";
 import CalendarTab from "./components/CalendarTab";
 import { useGetAppData, updateAppData } from "@workspace/api-client-react";
+import wrcCarImg from "./assets/wrc-car.png";
 
 export type Rally = {
   id: number;
@@ -337,8 +338,17 @@ export default function App() {
       <div className="h-1 w-full bg-yellow-400" />
 
       {/* Main header */}
-      <header className="bg-zinc-950 border-b border-zinc-800/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <header className="bg-zinc-950 border-b border-zinc-800/80 relative overflow-hidden">
+        {/* Decorative WRC car image */}
+        <div className="absolute inset-0 pointer-events-none hidden sm:block">
+          <img
+            src={wrcCarImg}
+            alt=""
+            className="absolute right-0 top-0 h-full object-cover object-left opacity-20"
+            style={{ width: "380px", maskImage: "linear-gradient(to right, transparent 0%, rgba(0,0,0,0.6) 40%, rgba(0,0,0,0.8) 100%)" }}
+          />
+        </div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative">
           <div className="flex items-stretch justify-between gap-4">
 
             {/* Logo / Branding */}
