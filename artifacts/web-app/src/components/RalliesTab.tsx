@@ -453,16 +453,33 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
                         </td>
                       );
                     })}
-                    <td className="font-mono text-center p-2">{dr ? formatTime(dr.total) : "–"}</td>
-                    <td className={`font-mono text-center p-2 text-sm ${gap !== null && gap === 0 ? "text-yellow-400 font-bold" : "text-zinc-400"}`}>
+                    <td className="font-mono text-center p-2">
+                      {dr ? (
+                        <span className={dr.isComplete ? "" : "text-zinc-400"}>
+                          {formatTime(dr.total)}
+                          {!dr.isComplete && (
+                            <span className="ml-1 text-xs text-zinc-500 font-sans">{dr.completedStages}/{activeRally.stages}</span>
+                          )}
+                        </span>
+                      ) : "–"}
+                    </td>
+                    <td className={`font-mono text-center p-2 text-sm ${gap !== null && gap === 0 ? "text-yellow-400 font-bold" : dr && !dr.isComplete ? "text-zinc-500" : "text-zinc-400"}`}>
                       {dr ? (gap === 0 ? "Liider" : formatGap(gap!)) : "–"}
                     </td>
-                    <td className="text-center font-bold p-2">{dr ? dr.rank : "–"}</td>
+                    <td className={`text-center font-bold p-2 ${dr && !dr.isComplete ? "text-zinc-500" : ""}`}>
+                      {dr ? dr.rank : "–"}
+                    </td>
                     {!activeRally.quickRace && (
                       <>
-                        <td className="text-center font-bold text-yellow-400 p-2">{dr ? dr.overallPts : "0"}</td>
-                        <td className="text-center font-bold text-green-400 p-2">{dr ? dr.psPts : "0"}</td>
-                        <td className="text-center font-bold text-xl p-2">{dr ? dr.totalPts : "0"}</td>
+                        <td className="text-center font-bold text-yellow-400 p-2">
+                          {dr ? (dr.isComplete ? dr.overallPts : "–") : "–"}
+                        </td>
+                        <td className="text-center font-bold text-green-400 p-2">
+                          {dr ? (dr.isComplete ? dr.psPts : "–") : "–"}
+                        </td>
+                        <td className="text-center font-bold text-xl p-2">
+                          {dr ? (dr.isComplete ? dr.totalPts : "–") : "–"}
+                        </td>
                       </>
                     )}
                   </tr>

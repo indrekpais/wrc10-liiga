@@ -63,24 +63,52 @@ export type DriverResult = {
   overallPts: number;
   psPts: number;
   totalPts: number;
+  completedStages: number;
+  isComplete: boolean;
 };
 
 export function calculateRallyResults(rally: Rally, drivers: string[]): DriverResult[] {
   const results: DriverResult[] = [];
+
   drivers.forEach((driver) => {
     const times = rally.results[driver] || [];
-    if (times.length < rally.stages || times.some((t) => !t)) return;
+    // Count non-empty entries up to rally.stages
+    const filled = times.slice(0, rally.stages).filter((t) => t && t.trim());
+    if (filled.length === 0) return; // nothing entered — skip
+
     let total = 0;
-    times.forEach((t) => { total += parseTime(t); });
-    results.push({ driver, total, psTime: parseTime(times[rally.stages - 1]), rank: 0, overallPts: 0, psPts: 0, totalPts: 0 });
+    times.slice(0, rally.stages).forEach((t) => {
+      if (t && t.trim()) total += parseTime(t);
+    });
+
+    const isComplete = filled.length >= rally.stages;
+    const lastFilledTime = isComplete ? times[rally.stages - 1] : "";
+
+    results.push({
+      driver,
+      total,
+      psTime: isComplete ? parseTime(lastFilledTime) : Infinity,
+      rank: 0,
+      overallPts: 0,
+      psPts: 0,
+      totalPts: 0,
+      completedStages: filled.length,
+      isComplete,
+    });
   });
+
+  // Rank all drivers who have ANY times by their partial total
   results.sort((a, b) => a.total - b.total);
   results.forEach((d, i) => {
     d.rank = i + 1;
-    d.overallPts = d.rank < POINTS_TABLE.length ? POINTS_TABLE[d.rank] : 0;
+    // Points only for fully completed drivers
+    d.overallPts = d.isComplete && d.rank < POINTS_TABLE.length ? POINTS_TABLE[d.rank] : 0;
   });
-  const psSorted = [...results].sort((a, b) => a.psTime - b.psTime);
+
+  // Power Stage points only for complete drivers
+  const psSorted = [...results].filter((d) => d.isComplete).sort((a, b) => a.psTime - b.psTime);
   psSorted.forEach((d, i) => { d.psPts = i < 5 ? PS_POINTS_TABLE[i] : 0; });
+
   results.forEach((d) => { d.totalPts = (d.overallPts || 0) + (d.psPts || 0); });
   return results;
 }
