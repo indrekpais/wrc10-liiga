@@ -6,13 +6,13 @@ import { calculateRallyResults, formatTime, formatGap, parseTime } from "../App"
 function smartFormatTime(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return trimmed;
-  if (/[:.\/,]/.test(trimmed)) return trimmed;
+  if (/[:.,]/.test(trimmed)) return trimmed;
   if (!/^\d+$/.test(trimmed)) return trimmed;
   if (trimmed.length < 3) return trimmed;
   const min = trimmed[0];
   const sec = trimmed.slice(1, 3);
   const ms = trimmed.slice(3);
-  return ms ? `${min}:${sec},${ms}` : `${min}:${sec}`;
+  return ms ? `${min}:${sec},${ms}` : `${min}:${sec},0`;
 }
 
 type Props = {
@@ -465,7 +465,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
                                 ? "bg-green-900/40 border-green-600 text-green-300"
                                 : "bg-zinc-800 border-zinc-700 text-white focus:border-yellow-400"
                             }`}
-                            placeholder="nt 34215"
+                            placeholder="nt 342150"
                           />
                         </td>
                       );
