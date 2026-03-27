@@ -273,7 +273,7 @@ export default function App() {
       <div className="max-w-7xl mx-auto p-6">
         <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
           <div className="flex items-baseline gap-4 flex-wrap">
-            <h1 className="text-4xl sm:text-5xl font-bold text-yellow-400">WRC 10 • Meie Liiga</h1>
+            <h1 className="text-4xl sm:text-5xl font-bold text-pink-400">WRC 10 • Meie Liiga</h1>
             {saveStatus !== "idle" && (
               <span className={`text-sm font-medium ${saveIndicator.color}`}>{saveIndicator.text}</span>
             )}
