@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Rally, Proposal, RallyNotification } from "../App";
 import { calculateRallyResults, formatTime, formatGap, parseTime } from "../App";
@@ -49,6 +49,35 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
   const [newDate, setNewDate] = useState("");
   const [newStages, setNewStages] = useState("15");
   const [newQuickRace, setNewQuickRace] = useState(false);
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  function getRallyWinner(r: Rally): string | null {
+    const completed = drivers.filter(d => {
+      const times = r.results[d] || [];
+      return times.length >= r.stages && times.slice(0, r.stages).every(t => t?.trim());
+    });
+    if (completed.length === 0) return null;
+    let best = "";
+    let bestTime = Infinity;
+    for (const d of completed) {
+      const total = (r.results[d] || []).slice(0, r.stages).reduce((sum, t) => sum + parseTime(t), 0);
+      if (total < bestTime) { bestTime = total; best = d; }
+    }
+    return best || null;
+  }
+
+  function isRallyFullyComplete(r: Rally): boolean {
+    if (drivers.length === 0) return false;
+    return drivers.every(d => {
+      const times = r.results[d] || [];
+      return times.length >= r.stages && times.slice(0, r.stages).every(t => t?.trim());
+    });
+  }
+
+  function selectRally(id: number) {
+    setCurrentRallyId(id);
+    setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 80);
+  }
 
   function formatRallyDate(dateStr: string): string {
     if (!dateStr) return "";
@@ -397,42 +426,55 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
         {rallies.map((r) => {
           const { complete, total } = getRallyCompletion(r);
           const pct = total > 0 ? (complete / total) * 100 : 0;
+          const winner = getRallyWinner(r);
+          const fullyDone = isRallyFullyComplete(r);
           return (
             <div
               key={r.id}
-              onClick={() => setCurrentRallyId(r.id)}
-              className={`p-6 rounded-3xl border cursor-pointer transition-colors ${
+              onClick={() => selectRally(r.id)}
+              className={`p-5 rounded-2xl border cursor-pointer transition-all ${
                 r.id === currentRallyId
-                  ? r.quickRace ? "border-orange-400 bg-zinc-800" : "border-yellow-400 bg-zinc-800"
-                  : "border-zinc-700 hover:border-zinc-500"
+                  ? r.quickRace ? "border-orange-400 bg-zinc-800/80" : "border-yellow-400 bg-zinc-800/80"
+                  : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-600 hover:bg-zinc-900"
               }`}
             >
-              <div className="flex justify-between items-start">
+              <div className="flex justify-between items-start gap-2">
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-bold text-xl">{r.name}</h4>
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <h4 className="wrc-heading text-lg text-white">{r.name}</h4>
+                    {fullyDone && (
+                      <span className="text-xs font-bold bg-green-500/15 text-green-400 border border-green-500/30 px-2 py-0.5 rounded-full">
+                        ✓ Lõpetatud
+                      </span>
+                    )}
                     {r.quickRace && (
-                      <span className="text-xs font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 px-2 py-0.5 rounded-full">
+                      <span className="text-xs font-bold bg-orange-500/15 text-orange-400 border border-orange-500/30 px-2 py-0.5 rounded-full">
                         ⚡ Quick Race
                       </span>
                     )}
                   </div>
-                  <p className={r.quickRace ? "text-orange-400" : "text-yellow-400"}>{r.date}</p>
-                  <p className="text-sm text-zinc-400 mt-2">
-                    {r.stages} etappi • {complete}/{total} juhti lõpetanud
-                  </p>
+                  <p className={`text-sm ${r.quickRace ? "text-orange-400" : "text-yellow-400"}`}>{r.date}</p>
+                  {winner ? (
+                    <p className="text-sm text-zinc-300 mt-2 flex items-center gap-1">
+                      <span className="text-base">🏆</span>
+                      <span className="font-semibold">{winner}</span>
+                    </p>
+                  ) : (
+                    <p className="text-sm text-zinc-500 mt-2">
+                      {r.stages} etappi · {complete}/{total} lõpetanud
+                    </p>
+                  )}
                 </div>
                 <button
                   onClick={(e) => { e.stopPropagation(); deleteRally(r.id); }}
-                  className="text-zinc-600 hover:text-red-500 transition-colors text-lg ml-2 flex-shrink-0"
+                  className="text-zinc-700 hover:text-red-500 transition-colors text-base ml-1 flex-shrink-0 mt-0.5"
                 >
                   ✕
                 </button>
               </div>
-              {/* Completion bar */}
-              <div className="mt-3 h-1.5 rounded-full bg-zinc-700 overflow-hidden">
+              <div className="mt-3 h-1 rounded-full bg-zinc-800 overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all ${pct === 100 ? "bg-green-500" : r.quickRace ? "bg-orange-400" : "bg-yellow-400"}`}
+                  className={`h-full rounded-full transition-all duration-500 ${pct === 100 ? "bg-green-500" : r.quickRace ? "bg-orange-400" : "bg-yellow-400"}`}
                   style={{ width: `${pct}%` }}
                 />
               </div>
@@ -441,8 +483,17 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
         })}
       </div>
 
+      {!activeRally && rallies.length > 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-zinc-600">
+          <svg className="w-12 h-12 mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+          <p className="text-sm uppercase tracking-widest">Vali ralli ülalt, et näha tulemusi</p>
+        </div>
+      )}
+
       {activeRally && (
-        <div className={`border rounded-3xl p-6 bg-zinc-900 overflow-x-auto ${activeRally.quickRace ? "border-orange-400" : "border-yellow-400"}`}>
+        <div ref={resultsRef} className={`border rounded-3xl p-6 bg-zinc-900 overflow-x-auto ${activeRally.quickRace ? "border-orange-400" : "border-yellow-400"}`}>
           <div className="flex justify-between items-center mb-6 gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
@@ -481,11 +532,14 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
             <thead>
               <tr>
                 <th className="bg-yellow-400 text-black font-bold p-2 text-left min-w-[120px] sticky left-0 z-10">Juht</th>
-                {Array.from({ length: activeRally.stages }, (_, i) => (
-                  <th key={i} className="bg-yellow-400 text-black font-bold p-2 min-w-[90px] text-center">
-                    {i === activeRally.stages - 1 ? `PS${i + 1}` : `SS${i + 1}`}
-                  </th>
-                ))}
+                {Array.from({ length: activeRally.stages }, (_, i) => {
+                  const isPS = i === activeRally.stages - 1;
+                  return (
+                    <th key={i} className={`font-bold p-2 min-w-[90px] text-center ${isPS ? "bg-amber-500 text-black" : "bg-yellow-400 text-black"}`}>
+                      {isPS ? <span className="flex flex-col items-center leading-tight"><span className="text-xs font-black tracking-widest">PS</span><span>{i + 1}</span></span> : `SS${i + 1}`}
+                    </th>
+                  );
+                })}
                 <th className="bg-yellow-400 text-black font-bold p-2 min-w-[110px] text-center">Koguaeg</th>
                 <th className="bg-yellow-400 text-black font-bold p-2 min-w-[100px] text-center">Vahe</th>
                 <th className="bg-yellow-400 text-black font-bold p-2 min-w-[60px] text-center">Koht</th>
@@ -510,12 +564,23 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
                       const rawTime = times[i] || "";
                       const parsed = rawTime ? parseTime(rawTime) : Infinity;
                       const isBest = parsed !== Infinity && bestStageTimes[i] !== Infinity && parsed === bestStageTimes[i];
+                      const isPS = i === activeRally.stages - 1;
                       return (
-                        <td key={i} className="p-1">
+                        <td key={i} className={`p-1 ${isPS && !isBest ? "bg-amber-950/20" : ""}`}>
                           <input
                             type="text"
+                            inputMode="numeric"
                             defaultValue={smartFormatTime(rawTime)}
                             key={`${activeRally.id}-${driver}-${i}-${activeRally.stages}`}
+                            onKeyDown={(e) => {
+                              if (e.key === "Tab" && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                                e.preventDefault();
+                                const all = Array.from(document.querySelectorAll<HTMLInputElement>(".time-cell"));
+                                const idx = all.indexOf(e.currentTarget as HTMLInputElement);
+                                const next = all[e.shiftKey ? idx - 1 : idx + 1];
+                                if (next) next.focus();
+                              }
+                            }}
                             onBlur={(e) => {
                               const formatted = smartFormatTime(e.target.value);
                               if (formatted !== e.target.value) e.target.value = formatted;
@@ -524,9 +589,13 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
                             className={`time-cell w-full text-center px-1 py-1 rounded focus:outline-none font-mono text-sm transition-colors ${
                               isBest
                                 ? "bg-green-900/40 border border-green-600 text-green-300"
-                                : rawTime
-                                  ? "bg-zinc-800 border border-zinc-700 text-white focus:border-yellow-400"
-                                  : "bg-zinc-900/30 border border-dashed border-zinc-700/40 text-white focus:border-yellow-400 focus:bg-zinc-800 focus:border-solid"
+                                : isPS
+                                  ? rawTime
+                                    ? "bg-amber-900/30 border border-amber-700/50 text-white focus:border-amber-400"
+                                    : "bg-amber-950/20 border border-dashed border-amber-800/30 text-white focus:border-amber-400 focus:bg-amber-900/30 focus:border-solid"
+                                  : rawTime
+                                    ? "bg-zinc-800 border border-zinc-700 text-white focus:border-yellow-400"
+                                    : "bg-zinc-900/30 border border-dashed border-zinc-700/40 text-white focus:border-yellow-400 focus:bg-zinc-800 focus:border-solid"
                             }`}
                             placeholder="342150"
                           />

@@ -199,18 +199,26 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
                   return (
                     <tr
                       key={entry.driver}
-                      className={`border-b border-zinc-800 transition-colors hover:bg-zinc-900 ${
-                        isLeader ? "bg-zinc-900/50" : ""
+                      className={`border-b border-zinc-800/60 transition-colors hover:bg-zinc-900/40 ${
+                        isLeader ? "bg-yellow-400/5" : ""
                       }`}
                     >
-                      <td className="p-3 font-bold text-lg sticky left-0 bg-zinc-950 z-10">
-                        {i < 3 ? medals[i] : `${i + 1}.`}
+                      <td className="p-3 sticky left-0 bg-zinc-950 z-10 w-12">
+                        {i === 0 ? (
+                          <span className="wrc-heading inline-flex items-center justify-center w-7 h-7 rounded bg-yellow-400 text-black text-sm">1</span>
+                        ) : i === 1 ? (
+                          <span className="wrc-heading inline-flex items-center justify-center w-7 h-7 rounded bg-zinc-400 text-black text-sm">2</span>
+                        ) : i === 2 ? (
+                          <span className="wrc-heading inline-flex items-center justify-center w-7 h-7 rounded bg-amber-700 text-white text-sm">3</span>
+                        ) : (
+                          <span className="text-zinc-500 font-bold text-sm pl-1">{i + 1}</span>
+                        )}
                       </td>
-                      <td className="p-3 font-bold sticky left-10 bg-zinc-950 z-10">
+                      <td className={`p-3 font-bold sticky left-10 bg-zinc-950 z-10 ${isLeader ? "text-yellow-400" : ""}`}>
                         {entry.driver}
                         {!isLeader && gap > 0 && (
-                          <span className="ml-2 text-xs text-zinc-500 font-normal">
-                            −{gap}
+                          <span className="ml-2 text-xs text-zinc-600 font-normal">
+                            −{gap} pts
                           </span>
                         )}
                       </td>
@@ -230,7 +238,7 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
                         );
                       })}
                       <td className="p-3 text-center">
-                        <span className={`text-xl font-bold ${isLeader ? "text-yellow-400" : "text-white"}`}>
+                        <span className={`wrc-heading text-2xl ${isLeader ? "text-yellow-400" : "text-white"}`}>
                           {entry.total}
                         </span>
                       </td>
