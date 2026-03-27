@@ -176,6 +176,7 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
   const [copied, setCopied] = useState(false);
   const [showIcsPanel, setShowIcsPanel] = useState(false);
   const [icsCopied, setIcsCopied] = useState(false);
+  const [openCalendarId, setOpenCalendarId] = useState<number | null>(null);
 
   function copyLink() {
     const url = `${window.location.origin}${window.location.pathname}#kalender`;
@@ -476,14 +477,48 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
                       {" · "}{Object.keys(proposal.responses).length}/{totalDrivers} vastanud
                     </p>
                   </div>
-                  {myName === proposal.proposedBy && (
-                    <button
-                      onClick={() => deleteProposal(proposal.id)}
-                      className="text-zinc-600 hover:text-red-500 transition-colors text-lg shrink-0"
-                    >
-                      ✕
-                    </button>
-                  )}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {proposal.dateISO && !isPast && (
+                      <div className="relative">
+                        <button
+                          onClick={() => setOpenCalendarId(openCalendarId === proposal.id ? null : proposal.id)}
+                          title="Lisa kalendrisse"
+                          className="w-8 h-8 flex items-center justify-center rounded-lg bg-zinc-800 hover:bg-yellow-400 hover:text-black text-zinc-400 font-bold text-xl transition-colors"
+                        >
+                          +
+                        </button>
+                        {openCalendarId === proposal.id && (
+                          <div className="absolute right-0 top-full mt-1 z-50 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden w-52">
+                            <a
+                              href={buildGoogleCalendarUrl(proposal)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => setOpenCalendarId(null)}
+                              className="flex items-center gap-2.5 px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                            >
+                              <span>📅</span>
+                              <span>Google Calendar</span>
+                            </a>
+                            <button
+                              onClick={() => { downloadIcs(proposal); setOpenCalendarId(null); }}
+                              className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white transition-colors"
+                            >
+                              <span>📱</span>
+                              <span>iPhone / Android (.ics)</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {myName === proposal.proposedBy && (
+                      <button
+                        onClick={() => deleteProposal(proposal.id)}
+                        className="text-zinc-600 hover:text-red-500 transition-colors text-lg"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex flex-col gap-1 mb-4 text-sm">
@@ -526,27 +561,6 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
                   </div>
                 )}
 
-                {/* Calendar buttons */}
-                {proposal.dateISO && !isPast && (
-                  <div className="flex gap-2 flex-wrap mt-3 pt-3 border-t border-zinc-800">
-                    <a
-                      href={buildGoogleCalendarUrl(proposal)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
-                    >
-                      <span>📅</span>
-                      <span>Lisa Google Calendari</span>
-                    </a>
-                    <button
-                      onClick={() => downloadIcs(proposal)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors"
-                    >
-                      <span>🍎</span>
-                      <span>Lisa iPhone Calendrisse</span>
-                    </button>
-                  </div>
-                )}
 
                 {totalDrivers > 0 && (
                   <div className="mt-4 flex h-2 rounded-full overflow-hidden bg-zinc-800">
