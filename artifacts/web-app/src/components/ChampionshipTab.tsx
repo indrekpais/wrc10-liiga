@@ -30,23 +30,31 @@ const DRIVER_COLORS = [
   "#94a3b8", // slate
 ];
 
-export default function ChampionshipTab({ rallies, drivers, activeSeason }: Props) {
-  const driverTotals: Record<string, number> = {};
-  drivers.forEach((d) => (driverTotals[d] = 0));
+type DriverResultMap = Record<string, { total: number; ps: number; rank: number; isComplete: boolean }>;
 
-  const rallyPoints: Record<number, Record<string, { total: number; ps: number; rank: number }>> = {};
+export default function ChampionshipTab({ rallies, drivers, activeSeason }: Props) {
+  // Precompute results once per rally
+  const precomputed: Record<number, DriverResultMap> = {};
   rallies.forEach((rally) => {
-    rallyPoints[rally.id] = {};
     const results = calculateRallyResults(rally, drivers);
+    precomputed[rally.id] = {};
     results.forEach((d) => {
-      rallyPoints[rally.id][d.driver] = {
+      precomputed[rally.id][d.driver] = {
         total: d.totalPts,
         ps: d.psPts,
         rank: d.rank,
+        isComplete: d.isComplete,
       };
-      if (d.isComplete && driverTotals[d.driver] !== undefined) {
-        driverTotals[d.driver] += d.totalPts;
-      }
+    });
+  });
+
+  // Championship totals (completed only)
+  const driverTotals: Record<string, number> = {};
+  drivers.forEach((d) => (driverTotals[d] = 0));
+  rallies.forEach((rally) => {
+    drivers.forEach((driver) => {
+      const dr = precomputed[rally.id]?.[driver];
+      if (dr?.isComplete) driverTotals[driver] += dr.total;
     });
   });
 
@@ -54,20 +62,50 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
     .map((driver) => ({ driver, total: driverTotals[driver] }))
     .sort((a, b) => b.total - a.total);
 
-  // --- Chart data: cumulative points per rally ---
+  const hasAnyData = rallies.some((r) =>
+    drivers.some((d) => precomputed[r.id]?.[d]?.isComplete)
+  );
+
+  // --- Chart data: cumulative + per-rally points ---
   const chartData = rallies.map((rally, idx) => {
     const entry: Record<string, string | number> = {
       name: rally.name.length > 10 ? rally.name.slice(0, 10) + "…" : rally.name,
     };
     drivers.forEach((driver) => {
+      // Cumulative (used for line position)
       let cum = 0;
       for (let i = 0; i <= idx; i++) {
-        cum += rallyPoints[rallies[i].id]?.[driver]?.total ?? 0;
+        const dr = precomputed[rallies[i].id]?.[driver];
+        if (dr?.isComplete) cum += dr.total;
       }
       entry[driver] = cum;
+      // Per-rally points for tooltip
+      const thisRally = precomputed[rally.id]?.[driver];
+      entry[`${driver}__this`] = thisRally?.isComplete ? thisRally.total : 0;
     });
     return entry;
   });
+
+  // Custom tooltip showing per-rally and cumulative points
+  const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: Array<{ name: string; value: number; color: string }>; label?: string }) => {
+    if (!active || !payload?.length) return null;
+    return (
+      <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-3 text-sm shadow-xl">
+        <p className="text-zinc-400 font-bold mb-2">{label}</p>
+        {payload.map((p) => {
+          const thisRally = (chartData.find((d) => d.name === label)?.[`${p.name}__this`] ?? 0) as number;
+          return (
+            <div key={p.name} className="flex items-center gap-2 mb-1">
+              <span className="w-2 h-2 rounded-full inline-block" style={{ background: p.color }} />
+              <span style={{ color: p.color }} className="font-semibold">{p.name}</span>
+              <span className="text-white ml-auto pl-4">+{thisRally}p</span>
+              <span className="text-zinc-400 text-xs">({p.value} kokku)</span>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
 
   // --- Statistics per driver ---
   type DriverStat = {
@@ -89,15 +127,14 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
     let finishedRallies = 0;
 
     rallies.forEach((rally) => {
-      const results = calculateRallyResults(rally, drivers);
-      const dr = results.find((r) => r.driver === driver);
-      if (dr && dr.isComplete) {
+      const dr = precomputed[rally.id]?.[driver];
+      if (dr?.isComplete) {
         finishedRallies++;
         if (dr.rank === 1) wins++;
         if (dr.rank <= 3) podiums++;
         rankSum += dr.rank;
-        psPoints += dr.psPts;
-        if (dr.totalPts > bestRallyPts) bestRallyPts = dr.totalPts;
+        psPoints += dr.ps;
+        if (dr.total > bestRallyPts) bestRallyPts = dr.total;
       }
     });
 
@@ -110,20 +147,9 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
       bestRallyPts,
       finishedRallies,
     };
-  }).sort((a, b) => {
-    const ta = driverTotals[a.driver] ?? 0;
-    const tb = driverTotals[b.driver] ?? 0;
-    return tb - ta;
-  });
+  }).sort((a, b) => (driverTotals[b.driver] ?? 0) - (driverTotals[a.driver] ?? 0));
 
   const medals = ["🥇", "🥈", "🥉"];
-
-  const hasAnyData = rallies.some((r) =>
-    drivers.some((d) => {
-      const res = calculateRallyResults(r, drivers);
-      return res.some((dr) => dr.driver === d && dr.isComplete);
-    })
-  );
 
   return (
     <div>
@@ -189,15 +215,12 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
                         )}
                       </td>
                       {rallies.map((r) => {
-                        const pts = rallyPoints[r.id]?.[entry.driver]?.total;
+                        const pts = precomputed[r.id]?.[entry.driver]?.total;
+                        const complete = precomputed[r.id]?.[entry.driver]?.isComplete;
                         return (
                           <td key={r.id} className="p-3 text-center">
-                            {pts !== undefined ? (
-                              <span
-                                className={`font-bold ${
-                                  pts > 0 ? "text-yellow-400" : "text-zinc-600"
-                                }`}
-                              >
+                            {complete ? (
+                              <span className={`font-bold ${pts && pts > 0 ? "text-yellow-400" : "text-zinc-600"}`}>
                                 {pts}
                               </span>
                             ) : (
@@ -207,11 +230,7 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
                         );
                       })}
                       <td className="p-3 text-center">
-                        <span
-                          className={`text-xl font-bold ${
-                            isLeader ? "text-yellow-400" : "text-white"
-                          }`}
-                        >
+                        <span className={`text-xl font-bold ${isLeader ? "text-yellow-400" : "text-white"}`}>
                           {entry.total}
                         </span>
                       </td>
@@ -245,15 +264,7 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
                       tickLine={false}
                       width={35}
                     />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#18181b",
-                        border: "1px solid #3f3f46",
-                        borderRadius: "12px",
-                        color: "#fff",
-                      }}
-                      labelStyle={{ color: "#a1a1aa", marginBottom: 4 }}
-                    />
+                    <Tooltip content={<CustomTooltip />} />
                     <Legend
                       wrapperStyle={{ color: "#a1a1aa", fontSize: 13, paddingTop: 12 }}
                     />
