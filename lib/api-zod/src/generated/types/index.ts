@@ -6,4 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./appData";
 export * from "./healthStatus";
+export * from "./proposal";
+export * from "./proposalResponses";
+export * from "./rally";
+export * from "./rallyResult";

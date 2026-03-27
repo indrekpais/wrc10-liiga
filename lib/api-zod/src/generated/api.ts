@@ -14,3 +14,84 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * @summary Get all shared app data
+ */
+export const GetAppDataResponse = zod.object({
+  drivers: zod.array(zod.string()),
+  rallies: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      date: zod.string(),
+      stages: zod.number(),
+      results: zod.record(zod.string(), zod.array(zod.string())),
+      season: zod.number().optional(),
+      quickRace: zod.boolean().optional(),
+    }),
+  ),
+  proposals: zod.array(
+    zod.object({
+      id: zod.number(),
+      proposedBy: zod.string(),
+      dateText: zod.string(),
+      host: zod.string().optional(),
+      rallyName: zod.string().optional(),
+      responses: zod.record(zod.string(), zod.enum(["yes", "no", "maybe"])),
+    }),
+  ),
+});
+
+/**
+ * @summary Save all shared app data
+ */
+export const UpdateAppDataBody = zod.object({
+  drivers: zod.array(zod.string()),
+  rallies: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      date: zod.string(),
+      stages: zod.number(),
+      results: zod.record(zod.string(), zod.array(zod.string())),
+      season: zod.number().optional(),
+      quickRace: zod.boolean().optional(),
+    }),
+  ),
+  proposals: zod.array(
+    zod.object({
+      id: zod.number(),
+      proposedBy: zod.string(),
+      dateText: zod.string(),
+      host: zod.string().optional(),
+      rallyName: zod.string().optional(),
+      responses: zod.record(zod.string(), zod.enum(["yes", "no", "maybe"])),
+    }),
+  ),
+});
+
+export const UpdateAppDataResponse = zod.object({
+  drivers: zod.array(zod.string()),
+  rallies: zod.array(
+    zod.object({
+      id: zod.number(),
+      name: zod.string(),
+      date: zod.string(),
+      stages: zod.number(),
+      results: zod.record(zod.string(), zod.array(zod.string())),
+      season: zod.number().optional(),
+      quickRace: zod.boolean().optional(),
+    }),
+  ),
+  proposals: zod.array(
+    zod.object({
+      id: zod.number(),
+      proposedBy: zod.string(),
+      dateText: zod.string(),
+      host: zod.string().optional(),
+      rallyName: zod.string().optional(),
+      responses: zod.record(zod.string(), zod.enum(["yes", "no", "maybe"])),
+    }),
+  ),
+});

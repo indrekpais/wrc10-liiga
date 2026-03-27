@@ -8,3 +8,36 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface RallyResult {
+  [key: string]: string[];
+}
+
+export interface Rally {
+  id: number;
+  name: string;
+  date: string;
+  stages: number;
+  results: RallyResult;
+  season?: number;
+  quickRace?: boolean;
+}
+
+export interface ProposalResponses {
+  [key: string]: "yes" | "no" | "maybe";
+}
+
+export interface Proposal {
+  id: number;
+  proposedBy: string;
+  dateText: string;
+  host?: string;
+  rallyName?: string;
+  responses: ProposalResponses;
+}
+
+export interface AppData {
+  drivers: string[];
+  rallies: Rally[];
+  proposals: Proposal[];
+}

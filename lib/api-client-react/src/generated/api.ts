@@ -5,18 +5,21 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type { AppData, HealthStatus } from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +102,162 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Get all shared app data
+ */
+export const getGetAppDataUrl = () => {
+  return `/api/appdata`;
+};
+
+export const getAppData = async (options?: RequestInit): Promise<AppData> => {
+  return customFetch<AppData>(getGetAppDataUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetAppDataQueryKey = () => {
+  return [`/api/appdata`] as const;
+};
+
+export const getGetAppDataQueryOptions = <
+  TData = Awaited<ReturnType<typeof getAppData>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAppData>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getGetAppDataQueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getAppData>>> = ({
+    signal,
+  }) => getAppData({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof getAppData>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetAppDataQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getAppData>>
+>;
+export type GetAppDataQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get all shared app data
+ */
+
+export function useGetAppData<
+  TData = Awaited<ReturnType<typeof getAppData>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof getAppData>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetAppDataQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Save all shared app data
+ */
+export const getUpdateAppDataUrl = () => {
+  return `/api/appdata`;
+};
+
+export const updateAppData = async (
+  appData: AppData,
+  options?: RequestInit,
+): Promise<AppData> => {
+  return customFetch<AppData>(getUpdateAppDataUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(appData),
+  });
+};
+
+export const getUpdateAppDataMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAppData>>,
+    TError,
+    { data: BodyType<AppData> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateAppData>>,
+  TError,
+  { data: BodyType<AppData> },
+  TContext
+> => {
+  const mutationKey = ["updateAppData"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateAppData>>,
+    { data: BodyType<AppData> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return updateAppData(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateAppDataMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateAppData>>
+>;
+export type UpdateAppDataMutationBody = BodyType<AppData>;
+export type UpdateAppDataMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Save all shared app data
+ */
+export const useUpdateAppData = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateAppData>>,
+    TError,
+    { data: BodyType<AppData> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateAppData>>,
+  TError,
+  { data: BodyType<AppData> },
+  TContext
+> => {
+  return useMutation(getUpdateAppDataMutationOptions(options));
+};

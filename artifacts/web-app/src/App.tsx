@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import RalliesTab from "./components/RalliesTab";
 import DriversTab from "./components/DriversTab";
 import ChampionshipTab from "./components/ChampionshipTab";
 import CalendarTab from "./components/CalendarTab";
+import { useGetAppData, updateAppData } from "@workspace/api-client-react";
 
 export type Rally = {
   id: number;
@@ -94,62 +95,51 @@ export function calculateRallyResults(rally: Rally, drivers: string[]): DriverRe
   return results;
 }
 
-function loadFromStorage<T>(key: string, defaultVal: T): T {
-  try {
-    const saved = localStorage.getItem(key);
-    return saved ? JSON.parse(saved) : defaultVal;
-  } catch {
-    return defaultVal;
-  }
-}
-
 const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_DRIVERS = ["Risto", "Alar", "Kaupo", "Indrek", "Tanel"];
+const DEFAULT_RALLIES: Rally[] = [
+  { id: 1, name: "Monte Carlo", date: "10/11.04", stages: 15, results: {}, season: CURRENT_YEAR },
+];
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(0);
-  const [drivers, setDrivers] = useState<string[]>(() =>
-    loadFromStorage("wrcDrivers", ["Risto", "Alar", "Kaupo", "Indrek", "Tanel"])
-  );
-  const [rallies, setRallies] = useState<Rally[]>(() => {
-    const saved = loadFromStorage<Rally[]>("wrcRallies", []);
-    if (saved.length === 0) {
-      return [{ id: 1, name: "Monte Carlo", date: "10/11.04", stages: 15, results: {}, season: CURRENT_YEAR }];
-    }
-    return saved;
-  });
-  const [proposals, setProposals] = useState<Proposal[]>(() =>
-    loadFromStorage("wrcProposals", [])
-  );
+  const [drivers, setDrivers] = useState<string[]>(DEFAULT_DRIVERS);
+  const [rallies, setRallies] = useState<Rally[]>(DEFAULT_RALLIES);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
   const [currentRallyId, setCurrentRallyId] = useState<number | null>(null);
+  const [activeSeason, setActiveSeason] = useState<number>(CURRENT_YEAR);
+  const [dataLoaded, setDataLoaded] = useState(false);
 
-  // Seasons derived from existing rallies + current year
+  const { data: serverData } = useGetAppData();
+
+  useEffect(() => {
+    if (serverData && !dataLoaded) {
+      if (serverData.drivers?.length) setDrivers(serverData.drivers as string[]);
+      if (serverData.rallies?.length) setRallies(serverData.rallies as Rally[]);
+      if (serverData.proposals?.length) setProposals(serverData.proposals as Proposal[]);
+      setDataLoaded(true);
+    } else if (serverData && dataLoaded === false) {
+      setDataLoaded(true);
+    }
+  }, [serverData, dataLoaded]);
+
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveToServer = useCallback((d: string[], r: Rally[], p: Proposal[]) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      updateAppData({ drivers: d, rallies: r as never, proposals: p as never }).catch(console.error);
+    }, 800);
+  }, []);
+
+  useEffect(() => {
+    if (!dataLoaded) return;
+    saveToServer(drivers, rallies, proposals);
+  }, [drivers, rallies, proposals, dataLoaded, saveToServer]);
+
   const availableSeasons: number[] = Array.from(
-    new Set([
-      CURRENT_YEAR,
-      ...rallies.map((r) => r.season ?? CURRENT_YEAR),
-    ])
+    new Set([CURRENT_YEAR, ...rallies.map((r) => r.season ?? CURRENT_YEAR)])
   ).sort((a, b) => a - b);
-
-  const [activeSeason, setActiveSeason] = useState<number>(() => {
-    const saved = localStorage.getItem("wrcActiveSeason");
-    return saved ? parseInt(saved) : CURRENT_YEAR;
-  });
-
-  useEffect(() => {
-    localStorage.setItem("wrcDrivers", JSON.stringify(drivers));
-  }, [drivers]);
-
-  useEffect(() => {
-    localStorage.setItem("wrcRallies", JSON.stringify(rallies));
-  }, [rallies]);
-
-  useEffect(() => {
-    localStorage.setItem("wrcProposals", JSON.stringify(proposals));
-  }, [proposals]);
-
-  useEffect(() => {
-    localStorage.setItem("wrcActiveSeason", String(activeSeason));
-  }, [activeSeason]);
 
   function addSeason() {
     const year = prompt("Uue hooaja aasta:", String(CURRENT_YEAR + 1));
@@ -166,6 +156,7 @@ export default function App() {
   }
 
   const seasonRallies = rallies.filter((r) => (r.season ?? CURRENT_YEAR) === activeSeason);
+  const championshipRallies = seasonRallies.filter((r) => !r.quickRace);
 
   const tabs = ["RALLID", "JUHID", "ÜLDARVESTUS", "KALENDER"];
 
@@ -191,7 +182,6 @@ export default function App() {
           </div>
         </header>
 
-        {/* Season selector */}
         <div className="flex items-center gap-2 mb-8 flex-wrap">
           <span className="text-zinc-500 text-sm">Hooaeg:</span>
           {availableSeasons.map((s) => (
@@ -215,7 +205,11 @@ export default function App() {
           </button>
         </div>
 
-        {activeTab === 0 && (
+        {!dataLoaded && (
+          <div className="text-center text-zinc-400 py-20 text-lg">Laen andmeid...</div>
+        )}
+
+        {dataLoaded && activeTab === 0 && (
           <RalliesTab
             rallies={seasonRallies}
             setRallies={setRallies}
@@ -225,13 +219,13 @@ export default function App() {
             activeSeason={activeSeason}
           />
         )}
-        {activeTab === 1 && (
+        {dataLoaded && activeTab === 1 && (
           <DriversTab drivers={drivers} setDrivers={setDrivers} />
         )}
-        {activeTab === 2 && (
-          <ChampionshipTab rallies={seasonRallies} drivers={drivers} activeSeason={activeSeason} />
+        {dataLoaded && activeTab === 2 && (
+          <ChampionshipTab rallies={championshipRallies} drivers={drivers} activeSeason={activeSeason} />
         )}
-        {activeTab === 3 && (
+        {dataLoaded && activeTab === 3 && (
           <CalendarTab proposals={proposals} setProposals={setProposals} drivers={drivers} />
         )}
       </div>

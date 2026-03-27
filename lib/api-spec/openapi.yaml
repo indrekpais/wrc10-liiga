@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: appdata
+    description: Shared app data (rallies, drivers, proposals)
 paths:
   /healthz:
     get:
@@ -24,6 +26,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /appdata:
+    get:
+      operationId: getAppData
+      tags: [appdata]
+      summary: Get all shared app data
+      responses:
+        "200":
+          description: App data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppData"
+    put:
+      operationId: updateAppData
+      tags: [appdata]
+      summary: Save all shared app data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppData"
+      responses:
+        "200":
+          description: Saved app data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppData"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +67,80 @@ components:
       required:
         - status
 
+    RallyResult:
+      type: object
+      additionalProperties:
+        type: array
+        items:
+          type: string
+
+    Rally:
+      type: object
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        date:
+          type: string
+        stages:
+          type: number
+        results:
+          $ref: "#/components/schemas/RallyResult"
+        season:
+          type: number
+        quickRace:
+          type: boolean
+      required:
+        - id
+        - name
+        - date
+        - stages
+        - results
+
+    ProposalResponses:
+      type: object
+      additionalProperties:
+        type: string
+        enum: [yes, no, maybe]
+
+    Proposal:
+      type: object
+      properties:
+        id:
+          type: number
+        proposedBy:
+          type: string
+        dateText:
+          type: string
+        host:
+          type: string
+        rallyName:
+          type: string
+        responses:
+          $ref: "#/components/schemas/ProposalResponses"
+      required:
+        - id
+        - proposedBy
+        - dateText
+        - responses
+
+    AppData:
+      type: object
+      properties:
+        drivers:
+          type: array
+          items:
+            type: string
+        rallies:
+          type: array
+          items:
+            $ref: "#/components/schemas/Rally"
+        proposals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Proposal"
+      required:
+        - drivers
+        - rallies
+        - proposals
