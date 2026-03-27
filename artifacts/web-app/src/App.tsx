@@ -186,7 +186,10 @@ export default function App() {
   }, [serverData]);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestDataRef = useRef<{ d: string[]; r: Rally[]; p: Proposal[] } | null>(null);
+
   const saveToServer = useCallback((d: string[], r: Rally[], p: Proposal[]) => {
+    latestDataRef.current = { d, r, p };
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     pendingSaveRef.current = true;
     setSaveStatus("saving");
@@ -197,8 +200,39 @@ export default function App() {
           pendingSaveRef.current = false;
           setTimeout(() => setSaveStatus("idle"), 2000);
         })
-        .catch(() => { setSaveStatus("error"); pendingSaveRef.current = false; });
-    }, 800);
+        .catch(() => {
+          setSaveStatus("error");
+          pendingSaveRef.current = false;
+          // Auto-retry after 3s on network error
+          setTimeout(() => {
+            if (latestDataRef.current) {
+              const { d: ld, r: lr, p: lp } = latestDataRef.current;
+              updateAppData({ drivers: ld, rallies: lr as never, proposals: lp as never })
+                .then(() => setSaveStatus("saved"))
+                .catch(() => {});
+            }
+          }, 3000);
+        });
+    }, 400);
+  }, []);
+
+  // Flush pending saves synchronously when tab is closed
+  useEffect(() => {
+    function onUnload() {
+      if (!pendingSaveRef.current || !latestDataRef.current) return;
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+      const { d, r, p } = latestDataRef.current;
+      const body = JSON.stringify({ drivers: d, rallies: r, proposals: p });
+      // keepalive: true ensures the request completes even after page unload
+      fetch("/api/appdata", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body,
+        keepalive: true,
+      });
+    }
+    window.addEventListener("pagehide", onUnload);
+    return () => window.removeEventListener("pagehide", onUnload);
   }, []);
 
   useEffect(() => {
