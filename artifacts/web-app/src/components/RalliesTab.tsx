@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
-import type { Rally, Proposal } from "../App";
+import { motion, AnimatePresence } from "framer-motion";
+import type { Rally, Proposal, RallyNotification } from "../App";
 import { calculateRallyResults, formatTime, formatGap, parseTime } from "../App";
 
 function smartFormatTime(raw: string): string {
@@ -27,6 +27,9 @@ type Props = {
   myName: string;
   setMyName: (name: string) => void;
   onOpenCalendar: () => void;
+  notifications: RallyNotification[];
+  onDismissNotification: (rallyId: number, ts: number) => void;
+  onRegisterMyUpdate: (rallyId: number, ts: number) => void;
 };
 
 const RESPONSE_COLORS: Record<string, string> = {
@@ -40,7 +43,7 @@ const RESPONSE_ACTIVE: Record<string, string> = {
   no: "ring-2 ring-red-400",
 };
 
-export default function RalliesTab({ rallies, setRallies, drivers, currentRallyId, setCurrentRallyId, activeSeason, proposals, setProposals, myName, setMyName, onOpenCalendar }: Props) {
+export default function RalliesTab({ rallies, setRallies, drivers, currentRallyId, setCurrentRallyId, activeSeason, proposals, setProposals, myName, setMyName, onOpenCalendar, notifications, onDismissNotification, onRegisterMyUpdate }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [newName, setNewName] = useState("");
   const [newDate, setNewDate] = useState("");
@@ -81,12 +84,15 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
   }
 
   function updateTime(driver: string, stageIndex: number, value: string) {
+    if (!currentRallyId) return;
+    const ts = Date.now();
+    onRegisterMyUpdate(currentRallyId, ts);
     setRallies((prev) =>
       prev.map((r) => {
         if (r.id !== currentRallyId) return r;
         const driverTimes = r.results[driver] ? [...r.results[driver]] : new Array(r.stages).fill("");
         driverTimes[stageIndex] = value;
-        return { ...r, results: { ...r.results, [driver]: driverTimes } };
+        return { ...r, results: { ...r.results, [driver]: driverTimes }, lastUpdated: ts };
       })
     );
   }
@@ -187,6 +193,36 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
 
   return (
     <div>
+      {/* Results update notifications */}
+      <AnimatePresence>
+        {notifications.map((n) => {
+          const timeStr = new Date(n.ts).toLocaleTimeString("et-EE", { hour: "2-digit", minute: "2-digit" });
+          return (
+            <motion.div
+              key={`${n.rallyId}-${n.ts}`}
+              initial={{ opacity: 0, y: -12, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 0.97 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="mb-3 flex items-center justify-between gap-3 bg-green-900/30 border border-green-600/50 rounded-2xl px-4 py-3"
+            >
+              <span className="text-sm">
+                🏁 <span className="font-bold text-green-300">{n.name}</span>
+                <span className="text-green-400"> tulemused on uuendatud!</span>
+                <span className="text-zinc-500 ml-2 text-xs">{timeStr}</span>
+              </span>
+              <button
+                onClick={() => onDismissNotification(n.rallyId, n.ts)}
+                className="text-zinc-400 hover:text-white transition-colors text-lg leading-none flex-shrink-0"
+                aria-label="Sulge"
+              >
+                ✕
+              </button>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+
       {/* Upcoming events widget */}
       {upcomingProposals.length > 0 && (
         <div className="mb-8 bg-zinc-900 border border-zinc-700 rounded-2xl p-5">

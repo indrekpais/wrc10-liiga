@@ -13,6 +13,13 @@ export type Rally = {
   results: Record<string, string[]>;
   season?: number;
   quickRace?: boolean;
+  lastUpdated?: number;
+};
+
+export type RallyNotification = {
+  rallyId: number;
+  name: string;
+  ts: number;
 };
 
 export type Proposal = {
@@ -139,6 +146,26 @@ export default function App() {
   const [dataLoaded, setDataLoaded] = useState(false);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [myName, setMyName] = useState<string>(() => localStorage.getItem("wrcCurrentUser") || "");
+  const [notifications, setNotifications] = useState<RallyNotification[]>([]);
+  const knownRallyUpdates = useRef<Record<number, number>>({});
+  const myOwnUpdates = useRef<Set<string>>(new Set());
+
+  function registerMyUpdate(rallyId: number, ts: number) {
+    myOwnUpdates.current.add(`${rallyId}-${ts}`);
+    knownRallyUpdates.current[rallyId] = ts;
+  }
+
+  function dismissNotification(rallyId: number, ts: number) {
+    const key = `${rallyId}-${ts}`;
+    setNotifications((prev) => prev.filter((n) => !(n.rallyId === rallyId && n.ts === ts)));
+    try {
+      const dismissed: string[] = JSON.parse(localStorage.getItem("wrcDismissedUpdates") || "[]");
+      if (!dismissed.includes(key)) {
+        dismissed.push(key);
+        localStorage.setItem("wrcDismissedUpdates", JSON.stringify(dismissed));
+      }
+    } catch { /* ignore */ }
+  }
 
   function selectMyName(name: string) {
     setMyName(name);
@@ -168,7 +195,14 @@ export default function App() {
     if (!serverData) return;
     if (!dataLoaded) {
       if (serverData.drivers?.length) setDrivers(serverData.drivers as string[]);
-      if (serverData.rallies?.length) setRallies(serverData.rallies as Rally[]);
+      if (serverData.rallies?.length) {
+        const incomingRallies = serverData.rallies as Rally[];
+        setRallies(incomingRallies);
+        // Seed known updates on first load — no notifications on initial data
+        incomingRallies.forEach((r) => {
+          if (r.lastUpdated) knownRallyUpdates.current[r.id] = r.lastUpdated;
+        });
+      }
       if (serverData.proposals?.length) setProposals(serverData.proposals as Proposal[]);
       setDataLoaded(true);
       return;
@@ -178,7 +212,34 @@ export default function App() {
       const localStr = JSON.stringify({ d: drivers, r: rallies, p: proposals });
       if (serverStr !== localStr) {
         if (serverData.drivers?.length) setDrivers(serverData.drivers as string[]);
-        if (serverData.rallies) setRallies(serverData.rallies as Rally[]);
+        if (serverData.rallies) {
+          const incomingRallies = serverData.rallies as Rally[];
+          setRallies(incomingRallies);
+          // Detect new rally updates from other browsers
+          try {
+            const dismissed: string[] = JSON.parse(localStorage.getItem("wrcDismissedUpdates") || "[]");
+            const newNotifications: RallyNotification[] = [];
+            incomingRallies.forEach((r) => {
+              if (!r.lastUpdated) return;
+              const knownTs = knownRallyUpdates.current[r.id];
+              if (r.lastUpdated !== knownTs) {
+                const key = `${r.id}-${r.lastUpdated}`;
+                const isMyUpdate = myOwnUpdates.current.has(key);
+                const isDismissed = dismissed.includes(key);
+                if (!isMyUpdate && !isDismissed) {
+                  newNotifications.push({ rallyId: r.id, name: r.name, ts: r.lastUpdated });
+                }
+                knownRallyUpdates.current[r.id] = r.lastUpdated;
+              }
+            });
+            if (newNotifications.length > 0) {
+              setNotifications((prev) => {
+                const existing = new Set(prev.map((n) => `${n.rallyId}-${n.ts}`));
+                return [...prev, ...newNotifications.filter((n) => !existing.has(`${n.rallyId}-${n.ts}`))];
+              });
+            }
+          } catch { /* ignore */ }
+        }
         if (serverData.proposals) setProposals(serverData.proposals as Proposal[]);
       }
     }
@@ -331,6 +392,9 @@ export default function App() {
             myName={myName}
             setMyName={selectMyName}
             onOpenCalendar={() => switchTab(3)}
+            notifications={notifications}
+            onDismissNotification={dismissNotification}
+            onRegisterMyUpdate={registerMyUpdate}
           />
         )}
         {dataLoaded && activeTab === 1 && (
