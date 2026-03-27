@@ -50,6 +50,9 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
   const [newStages, setNewStages] = useState("15");
   const [newQuickRace, setNewQuickRace] = useState(false);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const [editingRallyMeta, setEditingRallyMeta] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editDate, setEditDate] = useState("");
 
   function getRallyWinner(r: Rally): string | null {
     const completed = drivers.filter(d => {
@@ -76,7 +79,33 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
 
   function selectRally(id: number) {
     setCurrentRallyId(id);
+    setEditingRallyMeta(false);
     setTimeout(() => resultsRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 80);
+  }
+
+  function startEditingMeta() {
+    if (!activeRally) return;
+    setEditName(activeRally.name);
+    // Convert display date (dd.mm.yyyy) back to yyyy-mm-dd for the date input
+    const d = activeRally.date;
+    if (d && d.includes(".")) {
+      const parts = d.split(".");
+      setEditDate(`${parts[2]}-${parts[1]}-${parts[0]}`);
+    } else {
+      setEditDate(d || "");
+    }
+    setEditingRallyMeta(true);
+  }
+
+  function saveRallyMeta() {
+    if (!activeRally || !editName.trim()) return;
+    const formattedDate = editDate ? formatRallyDate(editDate) : activeRally.date;
+    setRallies((prev) =>
+      prev.map((r) =>
+        r.id === activeRally.id ? { ...r, name: editName.trim(), date: formattedDate } : r
+      )
+    );
+    setEditingRallyMeta(false);
   }
 
   function formatRallyDate(dateStr: string): string {
@@ -496,15 +525,61 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
         <div ref={resultsRef} className={`border rounded-3xl p-6 bg-zinc-900 overflow-x-auto ${activeRally.quickRace ? "border-orange-400" : "border-yellow-400"}`}>
           <div className="flex justify-between items-center mb-6 gap-4 flex-wrap">
             <div>
-              <div className="flex items-center gap-3 flex-wrap">
-                <h3 className="wrc-heading text-3xl sm:text-4xl text-white">{activeRally.name}</h3>
-                {activeRally.quickRace && (
-                  <span className="text-sm font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 px-3 py-1 rounded-full">
-                    ⚡ Quick Race
-                  </span>
-                )}
-              </div>
-              <p className={activeRally.quickRace ? "text-orange-400" : "text-yellow-400"}>{activeRally.date}</p>
+              {editingRallyMeta ? (
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") saveRallyMeta(); if (e.key === "Escape") setEditingRallyMeta(false); }}
+                    placeholder="Ralli nimi"
+                    autoFocus
+                    className="wrc-heading text-2xl bg-zinc-800 border border-yellow-400 text-white px-3 py-1 rounded-lg focus:outline-none w-64"
+                  />
+                  <input
+                    type="date"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                    className="bg-zinc-800 border border-zinc-600 text-white px-3 py-1.5 rounded-lg focus:outline-none focus:border-yellow-400 text-sm [color-scheme:dark] w-48"
+                  />
+                  <div className="flex gap-2 mt-1">
+                    <button
+                      onClick={saveRallyMeta}
+                      disabled={!editName.trim()}
+                      className="px-4 py-1.5 bg-yellow-400 text-black font-bold text-sm rounded-lg hover:bg-yellow-300 disabled:opacity-40 transition-colors"
+                    >
+                      Salvesta
+                    </button>
+                    <button
+                      onClick={() => setEditingRallyMeta(false)}
+                      className="px-4 py-1.5 bg-zinc-700 text-white text-sm rounded-lg hover:bg-zinc-600 transition-colors"
+                    >
+                      Tühista
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-center gap-3 flex-wrap">
+                    <h3 className="wrc-heading text-3xl sm:text-4xl text-white">{activeRally.name}</h3>
+                    {activeRally.quickRace && (
+                      <span className="text-sm font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 px-3 py-1 rounded-full">
+                        ⚡ Quick Race
+                      </span>
+                    )}
+                    <button
+                      onClick={startEditingMeta}
+                      title="Muuda nime ja kuupäeva"
+                      className="text-zinc-600 hover:text-yellow-400 transition-colors"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                      </svg>
+                    </button>
+                  </div>
+                  <p className={activeRally.quickRace ? "text-orange-400 text-sm" : "text-yellow-400 text-sm"}>{activeRally.date}</p>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-2 bg-zinc-800 rounded-xl px-4 py-2">
               <span className="text-zinc-400 text-sm">Etapid:</span>
