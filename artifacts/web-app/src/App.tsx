@@ -333,36 +333,60 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
-      <div className="max-w-7xl mx-auto p-6">
-        <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
-          <div className="flex items-baseline gap-4 flex-wrap">
-            <h1 className="text-4xl sm:text-5xl font-bold text-pink-400">WRC 10 • Meie Liiga</h1>
-            {saveStatus !== "idle" && (
-              <span className={`text-sm font-medium ${saveIndicator.color}`}>{saveIndicator.text}</span>
-            )}
-          </div>
-          <div className="flex gap-2 sm:gap-4 flex-wrap">
-            {tabs.map((tab, i) => (
-              <button
-                key={i}
-                onClick={() => switchTab(i)}
-                className={`px-4 sm:px-6 py-2 sm:py-3 rounded-xl font-bold transition-colors text-sm sm:text-base ${
-                  activeTab === i ? "bg-yellow-400 text-black" : "text-white hover:bg-zinc-800"
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </header>
+      {/* WRC-style top accent bar */}
+      <div className="h-1 w-full bg-yellow-400" />
 
-        <div className="flex items-center gap-2 mb-8 flex-wrap">
-          <span className="text-zinc-500 text-sm">Hooaeg:</span>
+      {/* Main header */}
+      <header className="bg-zinc-950 border-b border-zinc-800/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-stretch justify-between gap-4">
+
+            {/* Logo / Branding */}
+            <div className="flex items-center gap-3 py-4">
+              <div className="flex items-center gap-1">
+                <div className="w-1 h-8 bg-yellow-400 skew-x-[-10deg]" />
+                <div className="w-1 h-8 bg-yellow-400/40 skew-x-[-10deg] ml-0.5" />
+              </div>
+              <div>
+                <div className="wrc-heading text-2xl sm:text-3xl text-white leading-none tracking-wider">
+                  WRC 10 <span className="text-yellow-400">·</span> MEIE LIIGA
+                </div>
+                <div className="text-xs text-zinc-500 tracking-widest uppercase mt-0.5">Private Rally League</div>
+              </div>
+              {saveStatus !== "idle" && (
+                <span className={`text-xs font-medium hidden sm:block ${saveIndicator.color}`}>{saveIndicator.text}</span>
+              )}
+            </div>
+
+            {/* Navigation tabs */}
+            <nav className="flex items-stretch gap-0 overflow-x-auto">
+              {tabs.map((tab, i) => (
+                <button
+                  key={i}
+                  onClick={() => switchTab(i)}
+                  className={`wrc-heading px-4 sm:px-5 py-0 text-sm sm:text-base border-b-2 transition-colors whitespace-nowrap ${
+                    activeTab === i
+                      ? "text-yellow-400 border-yellow-400"
+                      : "text-zinc-400 border-transparent hover:text-white hover:border-zinc-600"
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </nav>
+          </div>
+        </div>
+      </header>
+
+      {/* Season selector bar */}
+      <div className="bg-zinc-900/60 border-b border-zinc-800/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 flex items-center gap-2 flex-wrap">
+          <span className="text-zinc-500 text-xs uppercase tracking-widest font-medium mr-1">Hooaeg</span>
           {availableSeasons.map((s) => (
             <button
               key={s}
               onClick={() => handleSeasonChange(s)}
-              className={`px-4 py-1.5 rounded-lg font-bold text-sm transition-colors ${
+              className={`px-3 py-1 rounded text-xs font-bold tracking-wider transition-colors ${
                 activeSeason === s ? "bg-yellow-400 text-black" : "bg-zinc-800 hover:bg-zinc-700 text-white"
               }`}
             >
@@ -371,11 +395,18 @@ export default function App() {
           ))}
           <button
             onClick={addSeason}
-            className="px-3 py-1.5 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+            className="px-3 py-1 rounded text-xs bg-zinc-800/50 hover:bg-zinc-700 text-zinc-500 hover:text-white transition-colors"
           >
-            + Lisa hooaeg
+            + Lisa
           </button>
+          {saveStatus !== "idle" && (
+            <span className={`text-xs font-medium sm:hidden ml-auto ${saveIndicator.color}`}>{saveIndicator.text}</span>
+          )}
         </div>
+      </div>
+
+      {/* Page content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
 
         {!dataLoaded && (
           <div className="text-center text-zinc-400 py-20 text-lg animate-pulse">Laen andmeid...</div>

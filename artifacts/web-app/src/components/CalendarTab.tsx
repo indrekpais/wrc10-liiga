@@ -128,7 +128,7 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
   return (
     <div>
       <div className="flex justify-between items-center mb-6 gap-4 flex-wrap">
-        <h2 className="text-3xl font-bold">Kalender</h2>
+        <h2 className="wrc-heading text-3xl sm:text-4xl text-white pl-3 border-l-4 border-yellow-400">Kalender</h2>
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={copyLink}

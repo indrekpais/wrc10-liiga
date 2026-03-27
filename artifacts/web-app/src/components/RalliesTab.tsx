@@ -317,7 +317,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
       )}
 
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-3xl font-bold">Rallid</h2>
+        <h2 className="wrc-heading text-3xl sm:text-4xl text-white pl-3 border-l-4 border-yellow-400">Rallid</h2>
         <button
           onClick={() => setShowForm(true)}
           className="bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-bold transition-colors"
@@ -446,7 +446,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
           <div className="flex justify-between items-center mb-6 gap-4 flex-wrap">
             <div>
               <div className="flex items-center gap-3 flex-wrap">
-                <h3 className="text-3xl font-bold">{activeRally.name}</h3>
+                <h3 className="wrc-heading text-3xl sm:text-4xl text-white">{activeRally.name}</h3>
                 {activeRally.quickRace && (
                   <span className="text-sm font-bold bg-orange-500/20 text-orange-400 border border-orange-500/40 px-3 py-1 rounded-full">
                     ⚡ Quick Race

@@ -153,7 +153,7 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
 
   return (
     <div>
-      <h2 className="text-3xl font-bold mb-2">Üldarvestus</h2>
+      <h2 className="wrc-heading text-3xl sm:text-4xl text-white mb-2 pl-3 border-l-4 border-yellow-400">Üldarvestus</h2>
       <p className="text-zinc-500 text-sm mb-6">
         Hooaeg {activeSeason} · {rallies.length} rallit
       </p>
@@ -244,7 +244,7 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
           {/* Championship progression chart */}
           {hasAnyData && rallies.length >= 1 && (
             <div className="mb-10">
-              <h3 className="text-xl font-bold mb-1">Punktide areng</h3>
+              <h3 className="wrc-heading text-xl mb-1 text-white">Punktide Areng</h3>
               <p className="text-zinc-500 text-sm mb-4">
                 Kumulatiivsed punktid hooaja jooksul
               </p>
@@ -288,7 +288,7 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
           {/* Statistics grid */}
           {hasAnyData && (
             <div className="mb-10">
-              <h3 className="text-xl font-bold mb-1">Statistika</h3>
+              <h3 className="wrc-heading text-xl mb-1 text-white">Statistika</h3>
               <p className="text-zinc-500 text-sm mb-4">Lõpetatud rallide põhjal</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {stats.map((s, i) => (
