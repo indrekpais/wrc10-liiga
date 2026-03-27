@@ -1,6 +1,19 @@
 import { useState } from "react";
+import { motion } from "framer-motion";
 import type { Rally, Proposal } from "../App";
 import { calculateRallyResults, formatTime, formatGap, parseTime } from "../App";
+
+function smartFormatTime(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+  if (/[:.\/,]/.test(trimmed)) return trimmed;
+  if (!/^\d+$/.test(trimmed)) return trimmed;
+  if (trimmed.length < 3) return trimmed;
+  const min = trimmed[0];
+  const sec = trimmed.slice(1, 3);
+  const ms = trimmed.slice(3);
+  return ms ? `${min}:${sec},${ms}` : `${min}:${sec}`;
+}
 
 type Props = {
   rallies: Rally[];
@@ -442,13 +455,17 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
                             type="text"
                             defaultValue={rawTime}
                             key={`${activeRally.id}-${driver}-${i}-${activeRally.stages}`}
-                            onBlur={(e) => updateTime(driver, i, e.target.value)}
+                            onBlur={(e) => {
+                              const formatted = smartFormatTime(e.target.value);
+                              if (formatted !== e.target.value) e.target.value = formatted;
+                              updateTime(driver, i, formatted);
+                            }}
                             className={`w-full text-center px-1 py-1 rounded border focus:outline-none font-mono text-sm transition-colors ${
                               isBest
                                 ? "bg-green-900/40 border-green-600 text-green-300"
                                 : "bg-zinc-800 border-zinc-700 text-white focus:border-yellow-400"
                             }`}
-                            placeholder="–"
+                            placeholder="nt 34215"
                           />
                         </td>
                       );
@@ -488,16 +505,43 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
             </tbody>
           </table>
 
-          {results.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-4 text-sm text-zinc-500">
-              <span>🏆 <span className="text-white font-bold">{results[0].driver}</span> · {formatTime(results[0].total)}</span>
-              {results[1] && <span>· 2. <span className="text-zinc-300">{results[1].driver}</span> {formatGap(results[1].total - results[0].total)}</span>}
-              {results[2] && <span>· 3. <span className="text-zinc-300">{results[2].driver}</span> {formatGap(results[2].total - results[0].total)}</span>}
-            </div>
-          )}
+          {/* Podium display */}
+          {(() => {
+            const finishers = results.filter((r) => r.isComplete);
+            if (finishers.length < 3) return null;
+            const [first, second, third] = [finishers[0], finishers[1], finishers[2]];
+            const podiumEntries = [
+              { entry: second, pos: 2, color: "text-zinc-300", bg: "bg-zinc-700/60 border-zinc-500", height: "h-20", label: "🥈", delay: 0.1 },
+              { entry: first,  pos: 1, color: "text-yellow-400", bg: "bg-yellow-400/10 border-yellow-500", height: "h-32", label: "🥇", delay: 0 },
+              { entry: third,  pos: 3, color: "text-orange-400", bg: "bg-orange-400/10 border-orange-600", height: "h-14", label: "🥉", delay: 0.2 },
+            ];
+            return (
+              <div className="mt-8 mb-2">
+                <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider mb-3">Poodiumi</p>
+                <div className="flex items-end justify-center gap-3">
+                  {podiumEntries.map(({ entry, pos, color, bg, height, label, delay }) => (
+                    <motion.div
+                      key={pos}
+                      initial={{ scale: 0.7, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: "spring", stiffness: 200, damping: 18, delay }}
+                      className={`flex-1 max-w-[180px] border rounded-2xl p-3 flex flex-col items-center justify-end ${bg} ${height}`}
+                    >
+                      <span className="text-2xl mb-1">{label}</span>
+                      <p className={`font-bold text-sm text-center leading-tight ${color}`}>{entry.driver}</p>
+                      <p className="font-mono text-xs text-zinc-400 mt-0.5">{formatTime(entry.total)}</p>
+                      {!activeRally.quickRace && (
+                        <p className={`text-xs font-bold mt-0.5 ${color}`}>{entry.totalPts}p</p>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
-          <p className="text-sm text-zinc-500 mt-3">
-            * Sisesta ajad kujul <span className="font-mono text-zinc-300">m:ss,sss</span> (nt <span className="font-mono text-zinc-300">3:42,150</span>). <span className="text-green-500">Roheline</span> = etapi parim aeg.
+          <p className="text-sm text-zinc-500 mt-4">
+            * Sisesta ajad kujul <span className="font-mono text-zinc-300">m:ss,sss</span> (nt <span className="font-mono text-zinc-300">3:42,150</span>) või kiirelt <span className="font-mono text-zinc-300">342150</span>. <span className="text-green-500">Roheline</span> = etapi parim aeg.
           </p>
         </div>
       )}
