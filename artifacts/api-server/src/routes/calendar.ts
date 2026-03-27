@@ -1,5 +1,9 @@
-import type { Handler, HandlerEvent } from "@netlify/functions";
-import { Client } from "pg";
+import { Router, type IRouter } from "express";
+import { db } from "@workspace/db";
+import { settingsTable } from "@workspace/db/schema";
+import { eq } from "drizzle-orm";
+
+const router: IRouter = Router();
 
 type Proposal = {
   id: number;
@@ -11,23 +15,12 @@ type Proposal = {
   responses: Record<string, string>;
 };
 
-async function getClient(): Promise<Client> {
-  const client = new Client({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
-  await client.connect();
-  return client;
-}
-
 function extractTime(dateText: string): string {
   const match = dateText.match(/kell\s+(\d{1,2}:\d{2})/);
   return match ? match[1] : "19:00";
 }
 
 function toIcsDate(dateISO: string, timeStr: string): string {
-  // Estonia is EET (UTC+2) / EEST (UTC+3)
-  // We use TZID approach for proper local time
   const [h, m] = timeStr.split(":").map(Number);
   const d = dateISO.replace(/-/g, "");
   const hh = String(h).padStart(2, "0");
@@ -44,32 +37,13 @@ function escapeIcs(str: string): string {
   return str.replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
 }
 
-export const handler: Handler = async (event: HandlerEvent) => {
-  const headers = {
-    "Content-Type": "text/calendar; charset=utf-8",
-    "Content-Disposition": 'attachment; filename="wrc10-liiga.ics"',
-    "Cache-Control": "no-cache, no-store, must-revalidate",
-    "Access-Control-Allow-Origin": "*",
-  };
-
-  if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers, body: "" };
-  }
-
+router.get("/calendar.ics", async (req, res) => {
   let proposals: Proposal[] = [];
 
-  if (process.env.DATABASE_URL) {
-    const client = await getClient().catch(() => null);
-    if (client) {
-      try {
-        const result = await client.query("SELECT value FROM settings WHERE key = 'appdata'");
-        proposals = result.rows[0]?.value?.proposals ?? [];
-      } catch (_) {
-      } finally {
-        await client.end().catch(() => {});
-      }
-    }
-  }
+  try {
+    const row = await db.select().from(settingsTable).where(eq(settingsTable.key, "appdata")).limit(1);
+    proposals = (row[0]?.value as { proposals?: Proposal[] })?.proposals ?? [];
+  } catch (_) {}
 
   const dtstamp = toIcsDtstamp();
 
@@ -78,12 +52,10 @@ export const handler: Handler = async (event: HandlerEvent) => {
     .map((p) => {
       const time = extractTime(p.dateText);
       const dtstart = toIcsDate(p.dateISO!, time);
-      // Add 2h for end time
       const [h, m] = time.split(":").map(Number);
       const endH = String((h + 2) % 24).padStart(2, "0");
       const endM = String(m).padStart(2, "0");
       const dtend = `${p.dateISO!.replace(/-/g, "")}T${endH}${endM}00`;
-
       const summary = p.rallyName ? `WRC 10 · ${escapeIcs(p.rallyName)}` : "WRC 10 Mänguõhtu";
       const descParts: string[] = [];
       if (p.host) descParts.push(`Majavõõrustaja: ${p.host}`);
@@ -92,7 +64,6 @@ export const handler: Handler = async (event: HandlerEvent) => {
         .map(([n]) => n);
       if (yesVoters.length > 0) descParts.push(`Tulevad: ${yesVoters.join(", ")}`);
       const description = escapeIcs(descParts.join("\\n"));
-
       return [
         "BEGIN:VEVENT",
         `UID:wrc10-${p.id}@wrc10liiga`,
@@ -137,5 +108,10 @@ export const handler: Handler = async (event: HandlerEvent) => {
     "END:VCALENDAR",
   ].join("\r\n");
 
-  return { statusCode: 200, headers, body: ics };
-};
+  res.setHeader("Content-Type", "text/calendar; charset=utf-8");
+  res.setHeader("Content-Disposition", 'attachment; filename="wrc10-liiga.ics"');
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.send(ics);
+});
+
+export default router;

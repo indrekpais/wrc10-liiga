@@ -62,7 +62,7 @@ export default function CalendarTab({ proposals, setProposals, drivers, myName, 
   const [copied, setCopied] = useState(false);
   const [showIcsPanel, setShowIcsPanel] = useState(false);
   const [icsCopied, setIcsCopied] = useState(false);
-  const ICS_URL = "https://wrc-10.netlify.app/.netlify/functions/calendar";
+  const ICS_URL = `${window.location.origin}/api/calendar.ics`;
 
   function copyLink() {
     const url = `${window.location.origin}${window.location.pathname}#kalender`;
