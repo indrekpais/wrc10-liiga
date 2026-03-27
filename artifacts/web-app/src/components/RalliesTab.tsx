@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Rally, Proposal, RallyNotification } from "../App";
 import { calculateRallyResults, formatTime, formatGap, parseTime } from "../App";
@@ -61,6 +61,29 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
   }
 
   const activeRally = rallies.find((r) => r.id === currentRallyId) ?? null;
+
+  // Auto-migrate stored raw-number times (e.g. "125689") to formatted ("1:25,689")
+  useEffect(() => {
+    if (!activeRally) return;
+    let needsSave = false;
+    const newResults: Record<string, string[]> = {};
+    for (const driver of Object.keys(activeRally.results)) {
+      const times = activeRally.results[driver] || [];
+      const formatted = times.map((t) => {
+        const f = smartFormatTime(t);
+        if (f !== t) needsSave = true;
+        return f;
+      });
+      newResults[driver] = formatted;
+    }
+    if (!needsSave) return;
+    setRallies((prev) =>
+      prev.map((r) =>
+        r.id === activeRally.id ? { ...r, results: newResults } : r
+      )
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentRallyId]);
 
   function createRally() {
     if (!newName.trim()) return;
@@ -491,7 +514,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
                         <td key={i} className="p-1">
                           <input
                             type="text"
-                            defaultValue={rawTime}
+                            defaultValue={smartFormatTime(rawTime)}
                             key={`${activeRally.id}-${driver}-${i}-${activeRally.stages}`}
                             onBlur={(e) => {
                               const formatted = smartFormatTime(e.target.value);
