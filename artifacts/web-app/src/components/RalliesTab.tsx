@@ -308,7 +308,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
 
       {/* Upcoming events widget */}
       {upcomingProposals.length > 0 && (
-        <div className="mb-8 bg-zinc-900 border border-zinc-700 rounded-2xl p-5">
+        <div className="mb-8 bg-zinc-900 border border-zinc-700/60 border-l-4 border-l-yellow-400/70 rounded-2xl p-5" style={{ boxShadow: 'inset 4px 0 0 rgba(250,204,21,0.15)' }}>
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-lg">📅 Järgmised mängukorrad</h3>
             <button
@@ -378,7 +378,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
         <h2 className="wrc-heading text-3xl sm:text-4xl text-white pl-3 border-l-4 border-yellow-400">Rallid</h2>
         <button
           onClick={() => setShowForm(true)}
-          className="bg-green-500 hover:bg-green-600 px-6 py-3 rounded-xl font-bold transition-colors"
+          className="bg-yellow-400 hover:bg-yellow-300 text-black px-6 py-3 rounded-xl font-bold transition-colors wrc-heading tracking-wide"
         >
           + Uus ralli
         </button>
@@ -463,9 +463,16 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
               onClick={() => selectRally(r.id)}
               className={`p-5 rounded-2xl border cursor-pointer transition-all ${
                 r.id === currentRallyId
-                  ? r.quickRace ? "border-orange-400 bg-zinc-800/80" : "border-yellow-400 bg-zinc-800/80"
-                  : "border-zinc-800 bg-zinc-900/50 hover:border-zinc-600 hover:bg-zinc-900"
+                  ? r.quickRace
+                    ? "border-orange-400 bg-zinc-800/80"
+                    : "border-yellow-400 bg-zinc-800/80"
+                  : "border-zinc-800 bg-zinc-900/50 hover:border-yellow-400/30 hover:bg-zinc-900"
               }`}
+              style={r.id === currentRallyId && !r.quickRace
+                ? { boxShadow: '0 0 24px rgba(250,204,21,0.1)' }
+                : r.id === currentRallyId && r.quickRace
+                ? { boxShadow: '0 0 24px rgba(249,115,22,0.1)' }
+                : {}}
             >
               <div className="flex justify-between items-start gap-2">
                 <div className="flex-1 min-w-0">

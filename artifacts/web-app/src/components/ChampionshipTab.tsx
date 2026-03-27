@@ -199,13 +199,14 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
                   return (
                     <tr
                       key={entry.driver}
-                      className={`border-b border-zinc-800/60 transition-colors hover:bg-zinc-900/40 ${
-                        isLeader ? "bg-yellow-400/5" : ""
-                      }`}
+                      className={`border-b border-zinc-800/60 transition-colors hover:bg-zinc-900/40`}
+                      style={isLeader ? {
+                        background: 'linear-gradient(to right, rgba(250,204,21,0.10) 0%, rgba(250,204,21,0.03) 40%, transparent 100%)'
+                      } : {}}
                     >
-                      <td className="p-3 sticky left-0 bg-zinc-950 z-10 w-12">
+                      <td className="p-3 sticky left-0 z-10 w-12" style={{ background: isLeader ? 'linear-gradient(to right, rgba(250,204,21,0.12), rgba(9,9,11,1) 80%)' : '#09090b' }}>
                         {i === 0 ? (
-                          <span className="wrc-heading inline-flex items-center justify-center w-7 h-7 rounded bg-yellow-400 text-black text-sm">1</span>
+                          <span className="wrc-heading inline-flex items-center justify-center w-7 h-7 rounded bg-yellow-400 text-black text-sm" style={{ boxShadow: '0 0 10px rgba(250,204,21,0.5)' }}>1</span>
                         ) : i === 1 ? (
                           <span className="wrc-heading inline-flex items-center justify-center w-7 h-7 rounded bg-zinc-400 text-black text-sm">2</span>
                         ) : i === 2 ? (
@@ -214,7 +215,7 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
                           <span className="text-zinc-500 font-bold text-sm pl-1">{i + 1}</span>
                         )}
                       </td>
-                      <td className={`p-3 font-bold sticky left-10 bg-zinc-950 z-10 ${isLeader ? "text-yellow-400" : ""}`}>
+                      <td className={`p-3 font-bold sticky left-10 z-10 ${isLeader ? "text-yellow-400" : ""}`} style={{ background: isLeader ? 'linear-gradient(to right, rgba(250,204,21,0.08), rgba(9,9,11,1) 70%)' : '#09090b' }}>
                         {entry.driver}
                         {!isLeader && gap > 0 && (
                           <span className="ml-2 text-xs text-zinc-600 font-normal">
@@ -238,7 +239,10 @@ export default function ChampionshipTab({ rallies, drivers, activeSeason }: Prop
                         );
                       })}
                       <td className="p-3 text-center">
-                        <span className={`wrc-heading text-2xl ${isLeader ? "text-yellow-400" : "text-white"}`}>
+                        <span
+                          className={`wrc-heading text-2xl ${isLeader ? "text-yellow-400" : "text-white"}`}
+                          style={isLeader ? { textShadow: '0 0 16px rgba(250,204,21,0.6)' } : {}}
+                        >
                           {entry.total}
                         </span>
                       </td>
