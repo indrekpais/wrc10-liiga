@@ -85,13 +85,15 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
 
   function updateTime(driver: string, stageIndex: number, value: string) {
     if (!currentRallyId) return;
-    const ts = Date.now();
-    onRegisterMyUpdate(currentRallyId, ts);
     setRallies((prev) =>
       prev.map((r) => {
         if (r.id !== currentRallyId) return r;
         const driverTimes = r.results[driver] ? [...r.results[driver]] : new Array(r.stages).fill("");
+        const existing = driverTimes[stageIndex] ?? "";
+        if (existing === value) return r; // no change — skip update
         driverTimes[stageIndex] = value;
+        const ts = Date.now();
+        onRegisterMyUpdate(currentRallyId, ts);
         return { ...r, results: { ...r.results, [driver]: driverTimes }, lastUpdated: ts };
       })
     );

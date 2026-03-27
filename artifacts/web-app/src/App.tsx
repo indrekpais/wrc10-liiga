@@ -222,7 +222,7 @@ export default function App() {
             incomingRallies.forEach((r) => {
               if (!r.lastUpdated) return;
               const knownTs = knownRallyUpdates.current[r.id];
-              if (r.lastUpdated !== knownTs) {
+              if (r.lastUpdated > (knownTs ?? 0)) {
                 const key = `${r.id}-${r.lastUpdated}`;
                 const isMyUpdate = myOwnUpdates.current.has(key);
                 const isDismissed = dismissed.includes(key);
