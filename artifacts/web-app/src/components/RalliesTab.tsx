@@ -521,12 +521,14 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
                               if (formatted !== e.target.value) e.target.value = formatted;
                               updateTime(driver, i, formatted);
                             }}
-                            className={`w-full text-center px-1 py-1 rounded border focus:outline-none font-mono text-sm transition-colors ${
+                            className={`time-cell w-full text-center px-1 py-1 rounded focus:outline-none font-mono text-sm transition-colors ${
                               isBest
-                                ? "bg-green-900/40 border-green-600 text-green-300"
-                                : "bg-zinc-800 border-zinc-700 text-white focus:border-yellow-400"
+                                ? "bg-green-900/40 border border-green-600 text-green-300"
+                                : rawTime
+                                  ? "bg-zinc-800 border border-zinc-700 text-white focus:border-yellow-400"
+                                  : "bg-zinc-900/30 border border-dashed border-zinc-700/40 text-white focus:border-yellow-400 focus:bg-zinc-800 focus:border-solid"
                             }`}
-                            placeholder="nt 342150"
+                            placeholder="342150"
                           />
                         </td>
                       );

@@ -102,6 +102,13 @@
   }
 }
 
+@layer base {
+  input.time-cell::placeholder {
+    color: rgba(255,255,255,0.18);
+    font-style: italic;
+  }
+}
+
 @layer utilities {
   .wrc-heading {
     font-family: 'Barlow Condensed', 'Inter', system-ui, sans-serif;
