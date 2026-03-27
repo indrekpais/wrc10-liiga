@@ -159,9 +159,11 @@ export default function App() {
     const key = `${rallyId}-${ts}`;
     setNotifications((prev) => prev.filter((n) => !(n.rallyId === rallyId && n.ts === ts)));
     try {
-      const dismissed: string[] = JSON.parse(localStorage.getItem("wrcDismissedUpdates") || "[]");
+      let dismissed: string[] = JSON.parse(localStorage.getItem("wrcDismissedUpdates") || "[]");
       if (!dismissed.includes(key)) {
         dismissed.push(key);
+        // Cap at 200 entries to prevent unbounded growth
+        if (dismissed.length > 200) dismissed = dismissed.slice(-200);
         localStorage.setItem("wrcDismissedUpdates", JSON.stringify(dismissed));
       }
     } catch { /* ignore */ }

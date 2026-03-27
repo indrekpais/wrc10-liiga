@@ -84,7 +84,7 @@ export default function RalliesTab({ rallies, setRallies, drivers, currentRallyI
   }
 
   function updateTime(driver: string, stageIndex: number, value: string) {
-    if (!currentRallyId) return;
+    if (currentRallyId == null) return;
     setRallies((prev) =>
       prev.map((r) => {
         if (r.id !== currentRallyId) return r;
